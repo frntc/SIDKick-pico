@@ -374,6 +374,15 @@ void runEmulation()
 			{
 				uint8_t reg = cmd >> 8;
 
+				// this is a work-around if very early writes to SID-registers are missed due to boot-up time (and d418 is only set once)
+				static uint8_t d418_volume_set = 0;
+				if ( !d418_volume_set )
+				{
+					if ( reg == 0x18 ) d418_volume_set = 1;
+					if ( ringRead == 33 )
+						writeReSID( 0x18, 15 );
+				}
+
 				writeReSID( reg, cmd & 255 );
 
 				// pseudo stereo
@@ -384,7 +393,7 @@ void runEmulation()
 
 				//
 				// Digi-Playing Detection to bypass reSID
-				// (the heuristics below are based on the findings by Jürgen Wothke used in WebSid (https://bitbucket.org/wothke/websid/src/master/) )
+				// (the heuristics below are based on the findings by Jï¿½rgen Wothke used in WebSid (https://bitbucket.org/wothke/websid/src/master/) )
 				//
 
 				if ( SID_DIGI_DETECT )
@@ -392,7 +401,6 @@ void runEmulation()
 					uint8_t voice = 0;
 					if ( reg >  6 && reg < 14 ) { voice = 1; reg -= 7; }
 					if ( reg > 13 && reg < 21 ) { voice = 2; reg -= 14; }
-
 
 					//
 					// test-bit technique
@@ -1261,7 +1269,8 @@ void readConfiguration()
 void writeConfiguration()
 {
 	SET_CLOCK_125MHZ
-	sleep_ms( 2 );
+	//sleep_ms( 2 );
+	DELAY_Nx3p2_CYCLES( 85000 );
 	flash_range_erase( FLASH_CONFIG_OFFSET, FLASH_SECTOR_SIZE );
 
 	uint16_t c = crc16( config, 62 );
