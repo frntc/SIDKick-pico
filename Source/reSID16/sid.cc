@@ -17,6 +17,9 @@
 //  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //  ---------------------------------------------------------------------------
 
+// please note that modifications have been made to this source code 
+// for the use in the SIDKick pico firmware!
+
 #include "sid.h"
 #include <math.h>
 
@@ -37,6 +40,10 @@ __attribute__( ( optimize( "Os" ) ) ) SID16::SID16()
 
   bus_value = 0;
   bus_value_ttl = 0;
+
+  #ifdef USE_RGB_LED
+  voiceOut[ 0 ] = voiceOut[ 1 ] = voiceOut[ 2 ] = 0;
+  #endif
 
   ext_in = 0;
 }
@@ -654,19 +661,38 @@ void SID16::clock()
   int v1 = voice[1].output();
   int v2 = voice[2].output();
 
-  //v0 = v1 = v2 = 0;
+  if ( forceOutput[ 0 ] & 2 ) { v0 = voice[ 0 ].output( forceOutput[ 0 ] & ~3 ) + voice[ 0 ].voice_DC; }
+  if ( forceOutput[ 1 ] & 2 ) { v1 = voice[ 1 ].output( forceOutput[ 1 ] & ~3 ) + voice[ 1 ].voice_DC; }
+  if ( forceOutput[ 2 ] & 2 ) { v2 = voice[ 2 ].output( forceOutput[ 2 ] & ~3 ) + voice[ 2 ].voice_DC; }
 
-  // if ( forceOutput[ 0 ] & 2 ) v0 = ( forceOutput[ 0 ] & ~3 ) << 4;
-  // if ( forceOutput[ 1 ] & 2 ) v1 = ( forceOutput[ 1 ] & ~3 ) << 4;
-  // if ( forceOutput[ 2 ] & 2 ) v2 = ( forceOutput[ 2 ] & ~3 ) << 4;
-  if ( forceOutput[ 0 ] & 2 ) v0 = voice[ 0 ].output( forceOutput[ 0 ] & ~3 );
-  if ( forceOutput[ 1 ] & 2 ) v1 = voice[ 1 ].output( forceOutput[ 1 ] & ~3 );
-  if ( forceOutput[ 2 ] & 2 ) v2 = voice[ 2 ].output( forceOutput[ 2 ] & ~3 );
+  #ifdef USE_RGB_LED
+  voiceOut[ 0 ] = v0 - voice[ 0 ].voice_DC;
+  voiceOut[ 1 ] = v1 - voice[ 1 ].voice_DC;
+  voiceOut[ 2 ] = v2 - voice[ 2 ].voice_DC;
+  #endif
 
   v0p = 0;
-  if ( forceOutput[ 0 ] & 1 ) { v0 = 0; v0p += forceOutput[ 0 ] & ~3; } 
-  if ( forceOutput[ 1 ] & 1 ) { v1 = 0; v0p += forceOutput[ 1 ] & ~3; } 
-  if ( forceOutput[ 2 ] & 1 ) { v2 = 0; v0p += forceOutput[ 2 ] & ~3; } 
+  if ( forceOutput[ 0 ] & 1 ) 
+  { 
+      v0 = 0; v0p += forceOutput[ 0 ] & ~3; 
+      #ifdef USE_RGB_LED
+      voiceOut[ 0 ] = ((forceOutput[ 0 ] & ~3)-512) << 8;
+      #endif
+  }
+  if ( forceOutput[ 1 ] & 1 ) 
+  { 
+      v1 = 0; v0p += forceOutput[ 1 ] & ~3; 
+      #ifdef USE_RGB_LED
+      voiceOut[ 1 ] = ((forceOutput[ 1 ] & ~3)-512) << 8;
+      #endif
+  }
+  if ( forceOutput[ 2 ] & 1 ) 
+  { 
+      v2 = 0; v0p += forceOutput[ 2 ] & ~3; 
+      #ifdef USE_RGB_LED
+      voiceOut[ 2 ] = ((forceOutput[ 2 ] & ~3)-512) << 8;
+      #endif
+  }
 
   filter.clock( v0, v1, v2, ext_in );
 
@@ -748,22 +774,42 @@ void SID16::clock(cycle_count delta_t)
   }
 
   // Clock filter.
-  int v0 = voice[0].output();
-  int v1 = voice[1].output();
-  int v2 = voice[2].output();
-  
-  //v0 = v1 = v2 = 0;
-//  if ( forceOutput[ 0 ] & 2 ) v0 = ( forceOutput[ 0 ] & ~3 ) << 4;
-//  if ( forceOutput[ 1 ] & 2 ) v1 = ( forceOutput[ 1 ] & ~3 ) << 4;
-//  if ( forceOutput[ 2 ] & 2 ) v2 = ( forceOutput[ 2 ] & ~3 ) << 4;
-  if ( forceOutput[ 0 ] & 2 ) v0 = voice[ 0 ].output( forceOutput[ 0 ] & ~3 );
-  if ( forceOutput[ 1 ] & 2 ) v1 = voice[ 1 ].output( forceOutput[ 1 ] & ~3 );
-  if ( forceOutput[ 2 ] & 2 ) v2 = voice[ 2 ].output( forceOutput[ 2 ] & ~3 );
+  int v0 = voice[ 0 ].output();
+  int v1 = voice[ 1 ].output();
+  int v2 = voice[ 2 ].output();
+
+  if ( forceOutput[ 0 ] & 2 ) { v0 = voice[ 0 ].output( forceOutput[ 0 ] & ~3 ) + voice[ 0 ].voice_DC; }
+  if ( forceOutput[ 1 ] & 2 ) { v1 = voice[ 1 ].output( forceOutput[ 1 ] & ~3 ) + voice[ 1 ].voice_DC; }
+  if ( forceOutput[ 2 ] & 2 ) { v2 = voice[ 2 ].output( forceOutput[ 2 ] & ~3 ) + voice[ 2 ].voice_DC; }
+
+  #ifdef USE_RGB_LED
+  voiceOut[ 0 ] = v0 - voice[ 0 ].voice_DC;
+  voiceOut[ 1 ] = v1 - voice[ 1 ].voice_DC;
+  voiceOut[ 2 ] = v2 - voice[ 2 ].voice_DC;
+  #endif
 
   v0p = 0;
-  if ( forceOutput[ 0 ] & 1 ) { v0 = 0; v0p += forceOutput[ 0 ] & ~3; } 
-  if ( forceOutput[ 1 ] & 1 ) { v1 = 0; v0p += forceOutput[ 1 ] & ~3; } 
-  if ( forceOutput[ 2 ] & 1 ) { v2 = 0; v0p += forceOutput[ 2 ] & ~3; } 
+  if ( forceOutput[ 0 ] & 1 )
+  {
+      v0 = 0; v0p += forceOutput[ 0 ] & ~3;
+      #ifdef USE_RGB_LED
+      voiceOut[ 0 ] = ( ( forceOutput[ 0 ] & ~3 ) - 512 ) << 8;
+      #endif
+  }
+  if ( forceOutput[ 1 ] & 1 )
+  {
+      v1 = 0; v0p += forceOutput[ 1 ] & ~3;
+      #ifdef USE_RGB_LED
+      voiceOut[ 1 ] = ( ( forceOutput[ 1 ] & ~3 ) - 512 ) << 8;
+      #endif
+  }
+  if ( forceOutput[ 2 ] & 1 )
+  {
+      v2 = 0; v0p += forceOutput[ 2 ] & ~3;
+      #ifdef USE_RGB_LED
+      voiceOut[ 2 ] = ( ( forceOutput[ 2 ] & ~3 ) - 512 ) << 8;
+      #endif
+  }
 
   filter.clock(delta_t, v0, v1, v2, ext_in);
 

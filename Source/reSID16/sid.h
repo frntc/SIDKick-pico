@@ -17,6 +17,9 @@
 //  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //  ---------------------------------------------------------------------------
 
+// please note that modifications have been made to this source code 
+// for the use in the SIDKick pico firmware!
+
 #ifndef __SID16_H__
 #define __SID16_H__
 
@@ -87,6 +90,10 @@ public:
   int output(int bits);
 
   void forceDigiOutput( int voice, int value );
+
+  #ifdef USE_RGB_LED
+  int voiceOut[ 3 ];
+  #endif
 
 protected:
   static double I0(double x);

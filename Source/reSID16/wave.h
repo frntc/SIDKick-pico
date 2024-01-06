@@ -17,6 +17,9 @@
 //  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //  ---------------------------------------------------------------------------
 
+// please note that modifications have been made to this source code 
+// for the use in the SIDKick pico firmware!
+
 #ifndef __WAVE_H__
 #define __WAVE_H__
 
