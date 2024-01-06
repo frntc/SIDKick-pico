@@ -68,6 +68,10 @@ uint8_t  POT_OUTLIER_REJECTION = 0;
 uint32_t SID2_ADDR_PREV = 255;
 uint8_t  config[ 64 ];
 
+#ifdef USE_RGB_LED
+int32_t  voiceOutAcc[ 3 ], nSamplesAcc;
+#endif
+
 SID16 *sid16;
 SID16 *sid16b;
 
@@ -212,6 +216,13 @@ extern "C"
         sid16b->set_sampling_parameters( C64_CLOCK, SAMPLE_INTERPOLATE, 44100 );
 
         updateConfiguration();
+
+        #ifdef USE_RGB_LED
+        voiceOutAcc[ 0 ] = 
+        voiceOutAcc[ 1 ] = 
+        voiceOutAcc[ 2 ] = 0;
+        nSamplesAcc = 0;
+        #endif
     }
 
     void emulateCyclesReSID( int cyclesToEmulate )
@@ -238,13 +249,28 @@ extern "C"
     void outputReSID( int16_t * left, int16_t * right )
     {
         int32_t sid1 = sid16->output(),
-            sid2 = sid16b->output();
+                sid2 = sid16b->output();
 
         int32_t L = sid1 * actVolSID1_Left + sid2 * actVolSID2_Left;
         int32_t R = sid1 * actVolSID1_Right + sid2 * actVolSID2_Right;
 
         *left = L >> 16;
         *right = R >> 16;
+
+        #ifdef USE_RGB_LED
+        // SID #1 voices map to red, green, blue
+        voiceOutAcc[ 0 ] = sid16->voiceOut[ 0 ];
+        voiceOutAcc[ 1 ] = sid16->voiceOut[ 1 ];
+        voiceOutAcc[ 2 ] = sid16->voiceOut[ 2 ];
+        // SID #2 voices map to orange, cyan, purple
+        voiceOutAcc[ 0 ] += ( 3 * sid16b->voiceOut[ 0 ] ) >> 2;
+        voiceOutAcc[ 1 ] += sid16b->voiceOut[ 0 ] >> 2;
+        voiceOutAcc[ 1 ] += sid16b->voiceOut[ 1 ] >> 1;
+        voiceOutAcc[ 2 ] += sid16b->voiceOut[ 1 ] >> 1;
+        voiceOutAcc[ 2 ] += sid16b->voiceOut[ 2 ] >> 1;
+        voiceOutAcc[ 0 ] += sid16b->voiceOut[ 2 ] >> 1;
+        nSamplesAcc ++;
+        #endif
     }
 
     void resetReSID()
