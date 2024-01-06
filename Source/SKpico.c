@@ -55,6 +55,13 @@
 #include "pico/audio_i2s.h"
 #include "launch.h"
 #include "prgconfig.h"
+#include "hardware/pio.h"
+#include "hardware/clocks.h"
+
+#ifdef USE_RGB_LED
+#undef FLASH_LED
+#include "ws2812.pio.h"
+#endif
 
 const volatile uint8_t __in_flash() busTimings[ 8 ] = { 11, 15, 1, 2, 3, 4, 5, 6 };
 uint8_t DELAY_READ_BUS, DELAY_PHI2;
@@ -72,12 +79,12 @@ uint8_t sidDACMode = SID_DAC_OFF;
 #define VERSION_STR_SIZE  36
 static const unsigned char VERSION_STR[ VERSION_STR_SIZE ] = {
 #ifdef USE_DAC
-  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '1', '/', 0x44, 0x41, 0x43, '6', '4', ' ', 0, 0, 0, 0,   // version string to show
+  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '1', '2', '/', 0x44, 0x41, 0x43, '6', '4', 0, 0, 0, 0,   // version string to show
 #else
-  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '1', '/', 0x50, 0x57, 0x4d, '6', '4', ' ', 0, 0, 0, 0,   // version string to show
+  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '1', '2', '/', 0x50, 0x57, 0x4d, '6', '4', 0, 0, 0, 0,   // version string to show
 #endif
   0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, 0x00, 0x00,   // signature + extension version 0
-  0, 10,                                            // firmware version with stepping = 0.10
+  0, 12,                                            // firmware version with stepping = 0.12
 #ifdef SID_DAC_MODE_SUPPORT                         // support DAC modes? which?
   SID_DAC_MONO8 | SID_DAC_STEREO8,
 #else
@@ -220,6 +227,7 @@ uint16_t SID_CMD = 0xffff;
 
 #define  RING_SIZE 256
 uint16_t ringBuf[ RING_SIZE ];
+uint32_t ringTime[ RING_SIZE ];
 uint8_t  ringWrite = 0;
 uint8_t  ringRead  = 0;
 
@@ -285,6 +293,14 @@ void updateEmulationParameters()
 	SID2_IOx = SID2_IOx_global;
 }
 
+
+static inline void put_pixel(uint32_t pixel_grb) 
+{
+    pio_sm_put_blocking(pio0, 0, pixel_grb << 8u);
+}
+
+#define RGB24( r, g, b ) ( ( (uint32_t)(r)<<8 ) | ( (uint32_t)(g)<<16 ) | (uint32_t)(b) )
+
 void runEmulation()
 {
 	irq_set_mask_enabled( 0xffffffff, 0 );
@@ -321,6 +337,10 @@ void runEmulation()
 	gpio_put( PIN_DCDC_PSM_CTRL, 1 );
 	#endif
 
+	#ifdef USE_RGB_LED
+	initProgramWS2812();
+	#endif
+
 	// decompress config-tool
 	extern char *exo_decrunch( const char *in, char *out );
 	exo_decrunch( &prgCodeCompressed[ prgCodeCompressed_size ], &prgCode[ prgCode_size ] );
@@ -343,30 +363,45 @@ void runEmulation()
 	uint16_t ramp = 0;
 	int32_t  lastS = 0;
 
+	uint64_t lastD418Cycle = 0;
+	#ifdef USE_RGB_LED
+	uint8_t  digiD418Visualization = 0;
+	#endif
+
 	while ( 1 )
 	{
+		uint64_t targetEmulationCycle = c64CycleCounter;
 		while ( ringRead != ringWrite )
 		{
-			register uint16_t cmd = ringBuf[ ringRead ++ ];
-
 			#ifdef SID_DAC_MODE_SUPPORT
-			if ( sidDACMode && !( cmd & ( 1 << 15 ) ) )
+			// this is placed here, as we don't use time stamps in DAC mode
+			if ( sidDACMode && !( ringBuf[ ringRead ] & ( 1 << 15 ) ) )
 			{
+				register uint16_t cmd = ringBuf[ ringRead ++ ];
 				uint8_t reg = ( cmd >> 8 ) & 0x1f;
 
 				if ( sidDACMode == SID_DAC_STEREO8 )
 				{
 					if ( reg == 0x18 )
-						DAC_L = ( (int)( cmd & 255 ) - 128 ) << 8;
+						DAC_L = ( (int)( cmd & 255 ) - 128 ) << 7;
 					if ( reg == 0x19 )
-						DAC_R = ( (int)( cmd & 255 ) - 128 ) << 8; 
+						DAC_R = ( (int)( cmd & 255 ) - 128 ) << 7; 
 				} else
 				if ( sidDACMode == SID_DAC_MONO8 && reg == 0x18 )
 				{
-					DAC_L = DAC_R = ( (int)( cmd & 255 ) - 128 ) << 8;
+					DAC_L = DAC_R = ( (int)( cmd & 255 ) - 128 ) << 7;
 				}
-			} else
+				continue;
+			} 
 			#endif
+
+			if ( ringTime[ ringRead ] > lastSIDEmulationCycle )
+			{
+				targetEmulationCycle = ringTime[ ringRead ];
+				break;
+			}
+			register uint16_t cmd = ringBuf[ ringRead ++ ];
+
 			if ( cmd & ( 1 << 15 ) )
 			{
 				writeReSID2( ( cmd >> 8 ) & 0x1f, cmd & 255 );
@@ -382,6 +417,25 @@ void runEmulation()
 					if ( ringRead == 33 )
 						writeReSID( 0x18, 15 );
 				}
+
+				#ifdef USE_RGB_LED
+				if ( reg == 0x18 )
+				{
+					if ( ( targetEmulationCycle - lastD418Cycle ) < 1536 )
+					{
+						digiD418Visualization = 1;
+
+						// heuristic to detect Mahoney's technique based on findings by Jürgen Wothke used in WebSid (https://bitbucket.org/wothke/websid/src/master/) )
+						if ( ( 0x17[ outRegisters ] == 0x3 ) && ( 0x15[ outRegisters ] >= 0xfe ) && ( 0x16[ outRegisters ] >= 0xfe ) &&
+							 ( 0x06[ outRegisters ] >= 0xfb ) && ( 0x06[ outRegisters ] == 0x0d[ outRegisters ] ) && ( 0x06[ outRegisters ] == 0x14[ outRegisters ] ) &&
+							 ( 0x04[ outRegisters ] == 0x49 ) && ( 0x0b[ outRegisters ] == 0x49 ) && ( 0x12[ outRegisters ] == 0x49 ) )
+							digiD418Visualization = 2;
+					} else
+						digiD418Visualization = 0;
+
+					lastD418Cycle = targetEmulationCycle;
+				}
+				#endif
 
 				writeReSID( reg, cmd & 255 );
 
@@ -490,9 +544,9 @@ void runEmulation()
 				}
 				#endif
 			}
-		}
+		} // while
 
-		uint64_t curCycleCount = c64CycleCounter;
+		uint64_t curCycleCount = targetEmulationCycle;
 
 		#ifdef SID_DAC_MODE_SUPPORT
 		if ( !sidDACMode )
@@ -511,6 +565,10 @@ void runEmulation()
 				if ( ddActive[ 0 ] ) { *(int16_t *)&v = ( sampleValue[ 0 ] - 128 ) << 8; v &= ~3; v |= sampleTechnique; outputDigi( 0, *(int16_t *)&v ); }
 				if ( ddActive[ 1 ] ) { *(int16_t *)&v = ( sampleValue[ 1 ] - 128 ) << 8; v &= ~3; v |= sampleTechnique; outputDigi( 1, *(int16_t *)&v ); }
 				if ( ddActive[ 2 ] ) { *(int16_t *)&v = ( sampleValue[ 2 ] - 128 ) << 8; v &= ~3; v |= sampleTechnique; outputDigi( 2, *(int16_t *)&v ); }
+
+				#ifdef USE_RGB_LED
+				if ( sampleTechnique == 1 ) digiD418Visualization = 2;
+				#endif
 			}
 			#endif
 
@@ -529,6 +587,9 @@ void runEmulation()
 			{
 				L = DAC_L;
 				R = DAC_R;
+				#ifdef USE_RGB_LED
+				digiD418Visualization = 2;
+				#endif
 			} else
 			#endif
 			outputReSID( &L, &R );
@@ -546,6 +607,7 @@ void runEmulation()
 			{
 				if ( firstOutput )
 					audio_i2s_set_enabled( true );
+				firstOutput = 0;
 
 				int16_t *samples = (int16_t *)buffer->buffer->bytes;
 				audioOutPos = 0;
@@ -589,6 +651,53 @@ void runEmulation()
 			s *= s;
 			s >>= ( AUDIO_BITS - 5 );
 			newLEDValue += s;
+
+
+			#ifdef USE_RGB_LED
+			extern int32_t voiceOutAcc[ 3 ], nSamplesAcc;
+			static int32_t r_ = 0, g_ = 0, b_ = 0;
+
+			#define SAMPLE2BRIGHTNESS( _s, res ) {					\
+				int32_t s = _s;										\
+				s = ( s >> ( 16 - AUDIO_BITS ) );					\
+				res = abs( s ) << 2;								\
+				s *= s;												\
+				s >>= ( AUDIO_BITS - 5 );							\
+				res += s; }
+
+			int32_t r, g, b;
+
+			// no LEDs from voice output when using Mahoney's digi technique or PWM techniques
+			if ( digiD418Visualization < 2 )
+			{
+				SAMPLE2BRIGHTNESS( voiceOutAcc[ 0 ] >> 2, r );
+				SAMPLE2BRIGHTNESS( voiceOutAcc[ 1 ] >> 2, g );
+				SAMPLE2BRIGHTNESS( voiceOutAcc[ 2 ] >> 2, b );
+				r_ += r;
+				g_ += g;
+				b_ += b;
+			}
+
+			if ( digiD418Visualization )
+			{
+				int32_t t = newLEDValue << 7;
+				if ( digiD418Visualization == 1 ) t <<= 4;
+				r_ += t;
+				g_ += t;
+				b_ += t;
+			}
+
+			static uint16_t smpCnt = 0;
+			if ( ++ smpCnt >= 1024 )
+			{
+				r_ >>= 22;
+				g_ >>= 22;
+				b_ >>= 22;
+				put_pixel( RGB24( r_, g_, b_ ) );
+				r_ = g_ = b_ = 0;
+				smpCnt = 0;
+			}
+			#endif
 		}
 	}
 }
@@ -912,13 +1021,15 @@ handleSIDCommunication:
 					if ( D == 0xfb )
 					{
 						sidDACMode = SID_DAC_STEREO8;
-					} 
+					}
 					#endif
 				} else
 				{
 					SID_CMD = ( A << 8 ) | D;
 					if ( g & SID2_FLAG ) SID_CMD |= 1 << 15;
+				  	ringTime[ ringWrite ] = c64CycleCounter;
 					ringBuf[ ringWrite ++ ] = SID_CMD;
+
 
 					if ( REG_AUTO_DETECT_STEP[ reg ] == 0 &&
 						 0x12[ reg ] == 0xff &&
@@ -1280,6 +1391,7 @@ void writeConfiguration()
 	flash_range_program( FLASH_CONFIG_OFFSET, config, FLASH_PAGE_SIZE );
 	SET_CLOCK_FAST
 }
+
 
 int main()
 {
