@@ -1,0 +1,31 @@
+.program rgb
+.side_set 1
+
+.wrap_target
+loop:
+    out x, 1            side 0 [2]
+    jmp !x short_pulse  side 1 [1]
+    jmp loop            side 1 [4]
+short_pulse:
+    jmp loop            side 0 [4]
+.wrap
+
+% c-sdk {
+static inline void initProgramWS2812()
+{
+	uint32_t ofs = pio_add_program( pio0, &rgb_program );
+
+	pio_gpio_init( pio0, 23 );
+	pio_sm_set_consecutive_pindirs( pio0, 0, 23, 1, true );
+
+	pio_sm_config c = rgb_program_get_default_config( ofs );
+	sm_config_set_sideset_pins( &c, 23 );
+	sm_config_set_out_shift( &c, false, true, 24 );
+	sm_config_set_fifo_join( &c, PIO_FIFO_JOIN_TX );
+
+	sm_config_set_clkdiv_int_frac( &c, 37, 128 );
+	pio_sm_init( pio0, 0, ofs, &c );
+	pio_sm_set_enabled( pio0, 0, true );
+}
+%}
+
