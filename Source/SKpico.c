@@ -8,7 +8,7 @@
   SKpico.c
 
   SIDKick pico - SID-replacement with dual-SID emulation using a RPi pico and reSID 0.16 by Dag Lem
-  Copyright (c) 2023 Carsten Dachsbacher <frenetic@dachsbacher.de>
+  Copyright (c) 2023, 2024 Carsten Dachsbacher <frenetic@dachsbacher.de>
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -58,6 +58,10 @@
 #include "hardware/pio.h"
 #include "hardware/clocks.h"
 
+#include "hardware/watchdog.h"
+#include "hardware/structs/watchdog.h"
+#include "hardware/structs/psm.h"
+
 #ifdef USE_RGB_LED
 #undef FLASH_LED
 #include "ws2812.pio.h"
@@ -79,9 +83,9 @@ uint8_t sidDACMode = SID_DAC_OFF;
 #define VERSION_STR_SIZE  36
 static const unsigned char VERSION_STR[ VERSION_STR_SIZE ] = {
 #ifdef USE_DAC
-  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '1', '2', '/', 0x44, 0x41, 0x43, '6', '4', 0, 0, 0, 0,   // version string to show
+  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '1', '3', '/', 0x44, 0x41, 0x43, '6', '4', 0, 0, 0, 0,   // version string to show
 #else
-  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '1', '2', '/', 0x50, 0x57, 0x4d, '6', '4', 0, 0, 0, 0,   // version string to show
+  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '1', '3', '/', 0x50, 0x57, 0x4d, '6', '4', 0, 0, 0, 0,   // version string to show
 #endif
   0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, 0x00, 0x00,   // signature + extension version 0
   0, 12,                                            // firmware version with stepping = 0.12
@@ -127,6 +131,7 @@ extern void readRegs( uint8_t *p1, uint8_t *p2 );
 #define READ_ACCESS( g )	(  ( (g) & bRW ) )
 #define SID_ACCESS( g )		( !( (g) & bSID ) )
 #define SID_ADDRESS( g )	(  ( (g) >> A0 ) & 0x1f )
+#define SID_RESET( g )	    ( !( (g) & bRESET ) )
 
 #define WAIT_FOR_VIC_HALF_CYCLE { do { g = *gpioInAddr; } while ( !( VIC_HALF_CYCLE( g ) ) ); }
 #define WAIT_FOR_CPU_HALF_CYCLE { do { g = *gpioInAddr; } while ( !( CPU_HALF_CYCLE( g ) ) ); }
@@ -168,7 +173,7 @@ void initGPIOs()
 	gpio_set_pulls( 12, false, false );
 	gpio_set_pulls( 13, false, false );
 	gpio_set_pulls( A8, true, false );
-	
+
 	gpio_set_dir_all_bits( bOE | bPWN_POT | ( 1 << LED_BUILTIN ) );
 }
 
@@ -221,13 +226,14 @@ uint8_t *outRegisters_2 = &outRegisters[ 34 ];
 #define REG_AUTO_DETECT_STEP		32
 #define REG_MODEL_DETECT_VALUE		33
 
-uint8_t busValue = 0;
+uint8_t  busValue = 0;
+int32_t  busValueTTL = 0;
 
-uint16_t SID_CMD = 0xffff;
+uint16_t SID_CMD = 0xfffe;
 
 #define  RING_SIZE 256
 uint16_t ringBuf[ RING_SIZE ];
-uint32_t ringTime[ RING_SIZE ];
+uint64_t ringTime[ RING_SIZE ];
 uint8_t  ringWrite = 0;
 uint8_t  ringRead  = 0;
 
@@ -273,6 +279,7 @@ extern uint8_t POT_FILTER_global;
 uint8_t paddleFilterMode = 0;
 uint8_t  SID2_IOx;
 uint8_t potXExtrema[ 2 ], potYExtrema[ 2 ];
+volatile uint8_t doReset = 0;
 
 void updateEmulationParameters()
 {
@@ -296,7 +303,7 @@ void updateEmulationParameters()
 
 static inline void put_pixel(uint32_t pixel_grb) 
 {
-    pio_sm_put_blocking(pio0, 0, pixel_grb << 8u);
+	pio_sm_put_blocking( pio0, 0, pixel_grb << 8u );
 }
 
 #define RGB24( r, g, b ) ( ( (uint32_t)(r)<<8 ) | ( (uint32_t)(g)<<16 ) | (uint32_t)(b) )
@@ -417,7 +424,7 @@ void runEmulation()
 					if ( ringRead == 33 )
 						writeReSID( 0x18, 15 );
 				}
-
+				
 				#ifdef USE_RGB_LED
 				if ( reg == 0x18 )
 				{
@@ -856,6 +863,12 @@ handleSIDCommunication:
 			newSample = 0xfffe;
 		}
 
+		if ( busValueTTL <= 0 )
+		{
+			busValue = 0;
+		} else
+			busValueTTL --;
+
 		// perform some parts of paddle/mouse-smoothing during VIC-cycle
 		if ( paddleFilterMode >= 1 && !( newPotCounter & 4 ) )
 		{
@@ -1030,7 +1043,6 @@ handleSIDCommunication:
 				  	ringTime[ ringWrite ] = c64CycleCounter;
 					ringBuf[ ringWrite ++ ] = SID_CMD;
 
-
 					if ( REG_AUTO_DETECT_STEP[ reg ] == 0 &&
 						 0x12[ reg ] == 0xff &&
 						 0x0e[ reg ] == 0xff &&
@@ -1041,9 +1053,15 @@ handleSIDCommunication:
 					}
 					reg[ A ] = D;
 				}
-				disableDataLines = 1;
+				//disableDataLines = 1;
+				busValue = D;
+				if ( outRegisters[ REG_MODEL_DETECT_VALUE ] == SID_MODEL_DETECT_VALUE_8580 )
+					busValueTTL = 0xa2000; else 
+					busValueTTL = 0x1d00; 
 			}
 		}
+
+
 
 		/*   __   __  ___  ___      ___    __         ___ ___  ___  __
 			|__) /  \  |  |__  |\ |  |  | /  \  |\/| |__   |  |__  |__)
@@ -1380,7 +1398,6 @@ void readConfiguration()
 void writeConfiguration()
 {
 	SET_CLOCK_125MHZ
-	//sleep_ms( 2 );
 	DELAY_Nx3p2_CYCLES( 85000 );
 	flash_range_erase( FLASH_CONFIG_OFFSET, FLASH_SECTOR_SIZE );
 
