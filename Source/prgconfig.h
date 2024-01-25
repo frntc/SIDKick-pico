@@ -11,10 +11,11 @@
   Copyright (c) 2023 Carsten Dachsbacher <frenetic@dachsbacher.de>
 
   This file contains a native C64-program which does not depend on anything covered by GPL or similar
-  licenses. Due to recent development I decided to change the license for this file. This part of the code 
-  is no longer published under GPL. This code is copyrighted and its use for other than private use 
-  (e.g. selling SIDKick picos, derivates, or any other hardware running the SIDKick pico firmware 
-  including this part) is not allowed without prior written consent.
+  licenses. It is copied by the SIDKick firmware into C64-memory. Due to recent developments I decided 
+  to change the license for this file. This part of the code is no longer published under GPL. This 
+  code is copyrighted and its use for other than private use (e.g. selling SIDKick picos, derivates, 
+  or any other hardware running the SIDKick pico firmware including this part) is not allowed 
+  without prior written consent.
 
 */
 
