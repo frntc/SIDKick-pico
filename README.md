@@ -171,7 +171,7 @@ Be careful not to damage your RPi Pico, PC, or Commodore, or anything attached t
   
 ## License
 
-My portions of the source code are work licensed under GPLv3.
+My portions of the source code are work licensed under GPLv3 (except otherwise stated in a source file).
 
 The PCB is work licensed under a Creative Commons Attribution-NonCommercial-NoDerivs 4.0 (CC BY-NC-ND 4.0) International License. 
 
