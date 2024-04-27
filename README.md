@@ -183,9 +183,7 @@ CC BY-NC-ND 4.0 also means: selling for profit on ebay (e.g. indicated by pricin
 
 ## License Hall of Shame
 
-I have fun creating and improving the SKpico and my other projects. I'm happy when people share surplus boards at their own cost or make built SKpico available to others at low cost (I expect prices well below the official sellers). Unfortunately there are people seriously decreasing my fun factor by violating the CC BY-NC-ND 4.0-license for the hardware part. 
-
-From now on I will list the license violations I'm aware of publicly (only public information, e.g. usernames will be used). 
+I have fun creating and improving the SKpico and my other projects. I'm happy when people share surplus boards at their own cost or make built SKpico available to others at low cost (I expect prices well below the official sellers). Unfortunately there are people seriously decreasing my fun factor by violating the CC BY-NC-ND 4.0-license for the hardware part, and this is the page section to which I come back when my mood has been spoiled: From now on I will list the license violations I'm aware of publicly (only public information, e.g. usernames will be used). 
 
 Please welcome these sellers to the Hall of Shame:
 <table>
