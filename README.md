@@ -189,7 +189,7 @@ Please welcome these sellers to the Hall of Shame:
 <table>
 <tr>
 <td>  <img  height="150"  src="Images/hos_1.jpg">  </td>
-<td>35 Euros? Obviously no commercial intend...
+<td>35 Euros? Obviously no commercial intent at all...
 </tr>
 <tr>
 <td>  <img  height="150"  src="Images/hos_2.jpg">  </td>
