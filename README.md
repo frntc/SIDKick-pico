@@ -33,17 +33,19 @@ You can listen to the SIDKick pico in two videos by emulaThor: <br>
 
 This section summarizes building and setting up the hardware. 
 
-#### PCB ordering
+### PCB ordering
 
 You can order the PCBs from PCBWay without or with SMD-parts preassembled: [here](https://www.pcbway.com/project/shareproject/W160781ASB18_Gerber_1790f9c8.html).
 
-You can find my [other projects](https://www.pcbway.com/project/member/?bmbno=B5CDD8BE-199B-47) there.
-
-In case you don't have an account at PCBWay yet: [register via this link](https://pcbway.com/g/x1UjP0) and get "$5 of New User Free Credit".
+You can find my [other projects](https://www.pcbway.com/project/member/?bmbno=B5CDD8BE-199B-47) there. In case you don't have an account at PCBWay yet: [register via this link](https://pcbway.com/g/x1UjP0) and get "$5 of New User Free Credit".
 
 Even simpler: [Restore Store](https://restore-store.de) (not my shop) will offer pre-assembled SKpicos at fair prices soon.
 
-#### Building / Soldering
+There's a good chance that there will be more official resellers in the future. 
+Please do not buy from those who knowingly violate the license and sell overpriced SKpicos out of greed (see [Hall of Shame](#license-hall-of-shame)).
+
+
+### Building / Soldering
 
 The first step when building the SKpico is soldering the surface-mount components. These are located on the **bottom side** of the PCB. 
 Please see the BOM and assembly information [here](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom.html).
@@ -66,7 +68,7 @@ The next step is to solder the pin header and sockets  which works best if you f
 
 <br />
 
-## Installing SIDKick pico
+## Installing a SIDKick pico
 
 Pay attention to *correctly orient and insert* the RPi Pico and the SKpico (see backside of PCB for markings) into the SID-socket of your C64 or C128. Note that in a C128D you might need to remove one support bolt of the power supply to fit the SKpico. 
 
@@ -178,7 +180,31 @@ The PCB is work licensed under a Creative Commons Attribution-NonCommercial-NoDe
 CC BY-NC-ND 4.0 also means: selling for profit on ebay (e.g. indicated by pricing), or running a shop and offering hardware under such license (no matter on which platform) is a violation of the license -- claiming 'service for the community', 'for those who can't solder themselves', or 'offer at cost price' to sell related services does not comply with the license. It is, of course, absolutely fine to order a small batch (e.g. 10 units) and sell surplus units to friends.
 
 <br />
-  
+
+## License Hall of Shame
+
+I have fun creating and improving the SKpico and my other projects. I'm happy when people share surplus boards at their own cost or make built SKpico available to others at low cost (I expect prices well below the official sellers). Unfortunately there are people seriously decreasing my fun factor by violating the CC BY-NC-ND 4.0-license for the hardware part. 
+
+From now on I will list the license violations I'm aware of publicly (only public information, e.g. usernames will be used). 
+
+Please welcome these sellers to the Hall of Shame:
+<table>
+<tr>
+<td>  <img  height="150"  src="Images/hos_1.jpg">  </td>
+<td>35 Euros? Obviously no commercial intend...
+</tr>
+<tr>
+<td>  <img  height="150"  src="Images/hos_2.jpg">  </td>
+<td>40 Euros? Seriously?
+</tr>
+<tr>
+<td>  <img  height="150"  src="Images/hos_3.jpg">  </td>
+<td>27.50 Euros for a pre-assembled PCB kit with almost zero own work invested?
+</tr>
+</table>
+
+<br />
+
 ## Acknowledgements
 
 Last but not least I would like to thank a few people: Dag Lem for reSID, discussions and insights; emulaThor, bigby, TurboMicha, quadflyer8 and others on forum64.de for testing and feedback/bug reports; androSID for discussions and lots of information on electronics; [Retrofan](https://compidiaries.wordpress.com/) for designing the SIDKick-logo and his font which is used in the configuration tool; Flex/Artline Designs for letting me use his music in the config tool. Magnus Lind for releasing the Exo(de-)cruncher which is used in the firmware. Jürgen Wothke for releasing WebSid.
