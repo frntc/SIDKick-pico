@@ -199,6 +199,10 @@ Please welcome these sellers to the Hall of Shame:
 <td>  <img  height="150"  src="Images/hos_3.jpg">  </td>
 <td>27.50 Euros for a pre-assembled PCB kit with almost zero own work invested?
 </tr>
+<tr>
+<td>  <img  height="150"  src="Images/hos_4.jpg">  </td>
+<td>Same seller as on Amibay and 1st entry (check out the photos)...
+</tr>
 </table>
 
 <br />
