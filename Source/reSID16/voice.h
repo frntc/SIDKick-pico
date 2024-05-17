@@ -17,6 +17,9 @@
 //  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //  ---------------------------------------------------------------------------
 
+// please note that modifications have been made to this source code 
+// for the use in the SIDKick pico firmware!
+
 #ifndef __VOICE_H__
 #define __VOICE_H__
 
@@ -62,20 +65,50 @@ friend class SID16;
 // time a sample is calculated.
 // ----------------------------------------------------------------------------
 
-#if RESID_INLINING || defined(__VOICE_CC__)
+#if RESID_INLINING || defined(RESID_VOICE_CC)
 
 // ----------------------------------------------------------------------------
-// Amplitude modulated waveform output.
+// Amplitude modulated waveform output (20 bits).
 // Ideal range [-2048*255, 2047*255].
 // ----------------------------------------------------------------------------
-RESID_INLINE
-sound_sample Voice::output()
-{
-  if ( wave.floating_output_ttl >= 0x14000 - 64 )
-    freezedEnvelope = envelope.output();
 
-  // Multiply oscillator output with envelope output.
-  return (wave.output() - wave_zero)*envelope.output() + voice_DC;
+// The output for a voice is produced by a multiplying DAC, where the
+// waveform output modulates the envelope output.
+//
+// As noted by Bob Yannes: "The 8-bit output of the Envelope Generator was then
+// sent to the Multiplying D/A converter to modulate the amplitude of the
+// selected Oscillator Waveform (to be technically accurate, actually the
+// waveform was modulating the output of the Envelope Generator, but the result
+// is the same)".
+//
+//          7   6   5   4   3   2   1   0   VGND
+//          |   |   |   |   |   |   |   |     |   Missing
+//         2R  2R  2R  2R  2R  2R  2R  2R    2R   termination
+//          |   |   |   |   |   |   |   |     |
+//          --R---R---R---R---R---R---R--   ---
+//          |          _____
+//        __|__     __|__   |
+//        -----     =====   |
+//        |   |     |   |   |
+// 12V ---     -----     ------- GND
+//               |
+//              vout
+//
+// Bit on:  wout (see figure in wave.h)
+// Bit off: 5V (VGND)
+//
+// As is the case with all MOS 6581 DACs, the termination to (virtual) ground
+// at bit 0 is missing. The MOS 8580 has correct termination.
+//
+
+RESID_INLINE
+int Voice::output()
+{
+	if ( wave.floating_output_ttl >= 0x14000 - 64 )
+		freezedEnvelope = envelope.output();
+
+	// Multiply oscillator output with envelope output.
+	return ( wave.output() - wave_zero ) * envelope.output() + voice_DC;
 }
 
 RESID_INLINE
@@ -83,8 +116,9 @@ sound_sample Voice::output( int w )
 {
   // Multiply oscillator output with envelope output.
   //return w << 4;
-  //return ( w - wave_zero)*freezedEnvelope + voice_DC;
-  return ( (w>>4))*envelope.output();
+//  return ( w - wave_zero)*freezedEnvelope + voice_DC;
+	return ( ( w >> 4 ) ) * envelope.output();
+//	return ( ( w >> 4 ) ) * freezedEnvelope;
 }
 
 #endif // RESID_INLINING || defined(__VOICE_CC__)

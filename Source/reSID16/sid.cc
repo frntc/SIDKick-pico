@@ -411,12 +411,12 @@ void SID16::enable_external_filter(bool enable)
 // I0() computes the 0th order modified Bessel function of the first kind.
 // This function is originally from resample-1.5/filterkit.c by J. O. Smith.
 // ----------------------------------------------------------------------------
-double SID16::I0(double x)
+float SID16::I0(float x)
 {
   // Max error acceptable in I0.
-  const double I0e = 1e-6;
+  const float I0e = 1e-6;
 
-  double sum, u, halfx, temp;
+  float sum, u, halfx, temp;
   int n;
 
   sum = u = n = 1;
@@ -454,9 +454,9 @@ double SID16::I0(double x)
 // to slightly below 20kHz. This constraint ensures that the FIR table is
 // not overfilled.
 // ----------------------------------------------------------------------------
-bool SID16::set_sampling_parameters(double clock_freq, sampling_method method,
-				  double sample_freq, double pass_freq,
-				  double filter_scale)
+bool SID16::set_sampling_parameters(float clock_freq, sampling_method method,
+				  float sample_freq, float pass_freq,
+				  float filter_scale)
 {
   // Check resampling constraints.
   if (method == SAMPLE_RESAMPLE_INTERPOLATE || method == SAMPLE_RESAMPLE_FAST)
@@ -505,20 +505,20 @@ bool SID16::set_sampling_parameters(double clock_freq, sampling_method method,
     return true;
   }
 
-  const double pi = 3.1415926535897932385;
+  const float pi = 3.1415926535897932385;
 
   // 16 bits -> -96dB stopband attenuation.
-  const double A = -20*log10(1.0/(1 << 16));
+  const float A = -20*log10(1.0/(1 << 16));
   // A fraction of the bandwidth is allocated to the transition band,
-  double dw = (1 - 2*pass_freq/sample_freq)*pi;
+  float dw = (1 - 2*pass_freq/sample_freq)*pi;
   // The cutoff frequency is midway through the transition band.
-  double wc = (2*pass_freq/sample_freq + 1)*pi/2;
+  float wc = (2*pass_freq/sample_freq + 1)*pi/2;
 
   // For calculation of beta and N see the reference for the kaiserord
   // function in the MATLAB Signal Processing Toolbox:
   // http://www.mathworks.com/access/helpdesk/help/toolbox/signal/kaiserord.html
-  const double beta = 0.1102*(A - 8.7);
-  const double I0beta = I0(beta);
+  const float beta = 0.1102*(A - 8.7);
+  const float I0beta = I0(beta);
 
   // The filter order will maximally be 124 with the current constraints.
   // N >= (96.33 - 7.95)/(2.285*0.1*pi) -> N >= 123
@@ -527,8 +527,8 @@ bool SID16::set_sampling_parameters(double clock_freq, sampling_method method,
   int N = int((A - 7.95)/(2.285*dw) + 0.5);
   N += N & 1;
 
-  double f_samples_per_cycle = sample_freq/clock_freq;
-  double f_cycles_per_sample = clock_freq/sample_freq;
+  float f_samples_per_cycle = sample_freq/clock_freq;
+  float f_cycles_per_sample = clock_freq/sample_freq;
 
   // The filter length is equal to the filter order + 1.
   // The filter length must be an odd number (sinc is symmetric about x = 0).
@@ -549,18 +549,18 @@ bool SID16::set_sampling_parameters(double clock_freq, sampling_method method,
   // Calculate fir_RES FIR tables for linear interpolation.
   for (int i = 0; i < fir_RES; i++) {
     int fir_offset = i*fir_N + fir_N/2;
-    double j_offset = double(i)/fir_RES;
+    float j_offset = float(i)/fir_RES;
     // Calculate FIR table. This is the sinc function, weighted by the
     // Kaiser window.
     for (int j = -fir_N/2; j <= fir_N/2; j++) {
-      double jx = j - j_offset;
-      double wt = wc*jx/f_cycles_per_sample;
-      double temp = jx/(fir_N/2);
-      double Kaiser =
+      float jx = j - j_offset;
+      float wt = wc*jx/f_cycles_per_sample;
+      float temp = jx/(fir_N/2);
+      float Kaiser =
 	fabs(temp) <= 1 ? I0(beta*sqrt(1 - temp*temp))/I0beta : 0;
-      double sincwt =
-	fabs(wt) >= 1e-6 ? sin(wt)/wt : 1;
-      double val =
+      float sincwt =
+	fabs(wt) >= 1e-6 ? sinf(wt)/wt : 1;
+      float val =
 	(1 << FIR_SHIFT)*filter_scale*f_samples_per_cycle*wc/pi*sincwt*Kaiser;
       fir[fir_offset + j] = short(val + 0.5);
     }
@@ -603,7 +603,7 @@ bool SID16::set_sampling_parameters(double clock_freq, sampling_method method,
 // that any adjustment of the sampling frequency will change the
 // characteristics of the resampling filter, since the filter is not rebuilt.
 // ----------------------------------------------------------------------------
-void SID16::adjust_sampling_frequency(double sample_freq)
+void SID16::adjust_sampling_frequency(float sample_freq)
 {
   cycles_per_sample =
     cycle_count(clock_frequency/sample_freq*(1 << FIXP_SHIFT) + 0.5);
@@ -633,6 +633,9 @@ void SID16::adjust_sampling_frequency(double sample_freq)
 // ----------------------------------------------------------------------------
 void SID16::clock()
 {
+    clock( 1 );
+
+#if 0
   int i;
 
   // Age bus value.
@@ -698,6 +701,7 @@ void SID16::clock()
 
   // Clock external filter.
   extfilt.clock(filter.output());
+#endif
 }
 
 static int ofs = 0;
@@ -707,6 +711,7 @@ static int ofs = 0;
 // ----------------------------------------------------------------------------
 void SID16::clock(cycle_count delta_t)
 {
+#if 0
   int i;
 
   if (delta_t <= 0) {
@@ -815,6 +820,130 @@ void SID16::clock(cycle_count delta_t)
 
   // Clock external filter.
   extfilt.clock(delta_t, filter.output() );
+#endif
+  int i;
+
+  // Pipelined writes on the MOS8580.
+/*  if ( ( write_pipeline ) && ( delta_t > 0 ) ) {
+      // Step one cycle by a recursive call to ourselves.
+      write_pipeline = 0;
+      clock( 1 );
+      write();
+      delta_t -= 1;
+  }*/
+
+  if ( ( delta_t <= 0 ) ) {
+      return;
+  }
+
+  // Age bus value.
+  bus_value_ttl -= delta_t;
+  if ( ( bus_value_ttl <= 0 ) ) {
+      bus_value = 0;
+      bus_value_ttl = 0;
+  }
+
+  // Clock amplitude modulators.
+  for ( i = 0; i < 3; i++ ) {
+      voice[ i ].envelope.clock( delta_t );
+  }
+
+  // Clock and synchronize oscillators.
+  // Loop until we reach the current cycle.
+  cycle_count delta_t_osc = delta_t;
+  while ( delta_t_osc ) {
+      cycle_count delta_t_min = delta_t_osc;
+
+      // Find minimum number of cycles to an oscillator accumulator MSB toggle.
+      // We have to clock on each MSB on / MSB off for hard sync to operate
+      // correctly.
+      for ( i = 0; i < 3; i++ ) {
+          WaveformGenerator &wave = voice[ i ].wave;
+
+          // It is only necessary to clock on the MSB of an oscillator that is
+          // a sync source and has freq != 0.
+          if ( ( !( wave.sync_dest->sync && wave.freq ) ) ) {
+              continue;
+          }
+
+          reg16 freq = wave.freq;
+          reg24 accumulator = wave.accumulator;
+
+          // Clock on MSB off if MSB is on, clock on MSB on if MSB is off.
+          reg24 delta_accumulator =
+              ( accumulator & 0x800000 ? 0x1000000 : 0x800000 ) - accumulator;
+
+          cycle_count delta_t_next = delta_accumulator / freq;
+          if ( ( delta_accumulator % freq ) ) {
+              ++delta_t_next;
+          }
+
+          if ( ( delta_t_next < delta_t_min ) ) {
+              delta_t_min = delta_t_next;
+          }
+      }
+
+      // Clock oscillators.
+      for ( i = 0; i < 3; i++ ) {
+          voice[ i ].wave.clock( delta_t_min );
+      }
+
+      // Synchronize oscillators.
+      for ( i = 0; i < 3; i++ ) {
+          voice[ i ].wave.synchronize();
+      }
+
+      delta_t_osc -= delta_t_min;
+  }
+
+  // Calculate waveform output.
+  for ( i = 0; i < 3; i++ ) {
+      voice[ i ].wave.set_waveform_output( delta_t );
+  }
+
+  int v0 = voice[ 0 ].output();
+  int v1 = voice[ 1 ].output();
+  int v2 = voice[ 2 ].output();
+
+  if ( forceOutput[ 0 ] & 2 ) { v0 = voice[ 0 ].output( forceOutput[ 0 ] & ~3 ); }
+  if ( forceOutput[ 1 ] & 2 ) { v1 = voice[ 1 ].output( forceOutput[ 1 ] & ~3 ); }
+  if ( forceOutput[ 2 ] & 2 ) { v2 = voice[ 2 ].output( forceOutput[ 2 ] & ~3 ); }
+
+#ifdef USE_RGB_LED
+  voiceOut[ 0 ] = v0 + voice[ 0 ].wave_zero * voice[ 0 ].envelope.output() - voice[ 0 ].voice_DC;
+  voiceOut[ 1 ] = v1 + voice[ 1 ].wave_zero * voice[ 1 ].envelope.output() - voice[ 1 ].voice_DC;
+  voiceOut[ 2 ] = v2 + voice[ 2 ].wave_zero * voice[ 2 ].envelope.output() - voice[ 2 ].voice_DC;
+#endif
+
+  v0p = 0;
+  if ( forceOutput[ 0 ] & 1 )
+  {
+      v0 = 0; v0p += forceOutput[ 0 ] & ~3;
+  #ifdef USE_RGB_LED
+      voiceOut[ 0 ] = ( ( forceOutput[ 0 ] & ~3 ) - 512 ) << 8;
+  #endif
+  }
+  if ( forceOutput[ 1 ] & 1 )
+  {
+      v1 = 0; v0p += forceOutput[ 1 ] & ~3;
+  #ifdef USE_RGB_LED
+      voiceOut[ 1 ] = ( ( forceOutput[ 1 ] & ~3 ) - 512 ) << 8;
+  #endif
+  }
+  if ( forceOutput[ 2 ] & 1 )
+  {
+      v2 = 0; v0p += forceOutput[ 2 ] & ~3;
+  #ifdef USE_RGB_LED
+      voiceOut[ 2 ] = ( ( forceOutput[ 2 ] & ~3 ) - 512 ) << 8;
+  #endif
+  }
+
+
+  // Clock filter.
+  filter.clock( delta_t, v0, v1, v2, ext_in );
+  // Clock external filter.
+  extfilt.clock( delta_t, filter.output() );
+
 }
 
 

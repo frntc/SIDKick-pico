@@ -24,7 +24,7 @@
 // ----------------------------------------------------------------------------
 // Constructor.
 // ----------------------------------------------------------------------------
-__attribute__( ( optimize( "Os" ) ) ) ExternalFilter::ExternalFilter()
+ExternalFilter::ExternalFilter()
 {
   reset();
   enable_filter(true);

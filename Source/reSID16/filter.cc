@@ -108,7 +108,7 @@ fc_point Filter::f0_points_8580[] =
 // ----------------------------------------------------------------------------
 // Constructor.
 // ----------------------------------------------------------------------------
-__attribute__( ( optimize( "Os" ) ) ) Filter::Filter()
+Filter::Filter()
 {
   fc = 0;
 
@@ -154,7 +154,7 @@ void Filter::enable_filter(bool enable)
 // ----------------------------------------------------------------------------
 // Set chip model.
 // ----------------------------------------------------------------------------
-void __attribute__( ( optimize( "Os" ) ) ) Filter::set_chip_model(chip_model model)
+void Filter::set_chip_model(chip_model model)
 {
   if (model == MOS6581) {
     // The mixer has a small input DC offset. This is found as follows:
