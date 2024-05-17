@@ -16,7 +16,7 @@ static inline void initProgramWS2812()
 	uint32_t ofs = pio_add_program( pio0, &rgb_program );
 
 	pio_gpio_init( pio0, 23 );
-	pio_sm_set_consecutive_pindirs( pio0, 0, 23, 1, true );
+	pio_sm_set_consecutive_pindirs( pio0, 1, 23, 1, true );
 
 	pio_sm_config c = rgb_program_get_default_config( ofs );
 	sm_config_set_sideset_pins( &c, 23 );
@@ -24,8 +24,8 @@ static inline void initProgramWS2812()
 	sm_config_set_fifo_join( &c, PIO_FIFO_JOIN_TX );
 
 	sm_config_set_clkdiv_int_frac( &c, 37, 128 );
-	pio_sm_init( pio0, 0, ofs, &c );
-	pio_sm_set_enabled( pio0, 0, true );
+	pio_sm_init( pio0, 1, ofs, &c );
+	pio_sm_set_enabled( pio0, 1, true );
 }
 %}
 

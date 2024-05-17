@@ -1,14 +1,14 @@
 /*
        ______/  _____/  _____/     /   _/    /             /
      _/           /     /     /   /  _/     /   ______/   /  _/             ____/     /   ______/   ____/
-      ___/       /     /     /   ___/      /   /         __/               /    _/   /   /         /     /
+      ___/       /     /     /   ___/      /   /         __/                    _/   /   /         /     /
          _/    _/    _/    _/   /  _/     /  _/         /  _/             _____/    /  _/        _/    _/
   ______/   _____/  ______/   _/    _/  _/    _____/  _/    _/          _/        _/    _____/    ____/
 																  
   reSID_LUT.h
 
-  SIDKick pico - SID-replacement with dual-SID emulation using a RPi pico and reSID 0.16 by Dag Lem
-  Copyright (c) 2023 Carsten Dachsbacher <frenetic@dachsbacher.de>
+  SIDKick pico - SID-replacement with dual-SID/SID+fm emulation using a RPi pico, reSID 0.16 and fmopl 
+  Copyright (c) 2023/2024 Carsten Dachsbacher <frenetic@dachsbacher.de>
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
