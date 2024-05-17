@@ -186,6 +186,8 @@ To add PRGs use *skpicopatch* (it's in the release package), with the respective
 
 When the SKpico-hardware is build correctly you should be able to start the configuration tool from Basic. If this does not work reliably, first check the soldering. In case it still does not work properly, or you experience glitches with the mouse or paddles (more than the normal slight jittering) or very old SID-tunes (reading write-only registers...) your computer might be one of the rare machines requiring different-than-default timings. They can be modified by calling *skpicopatch* with two additional parameters. Their default values are 15 and 11, smaller values mean less waiting for reading/writing signals to the bus. Most likely you need to decrease these values if you experience problems with the default timings.
 
+In case you use a Pico-clone with the RGB-LED and it does not blink, make sure the solder jumper for the RGB-LED is closed (it sometimes isn't).
+
 <br/>
 
 ## Firmware Building (if you want to):
