@@ -119,7 +119,7 @@ The order of pins to connect the DAC to the SKpico is easy to determine: the ord
 
 #### PCB with onboard DAC 
 
-<img align="right" height="160" src="Images/DAC_0.jpg">
+<img align="right" height="160" src="Images/DAC_jumpers.jpg">
 
 **Hint:** For best quality connect the DAC-output on the SKpico-PCB to the audio/video-socket (pin 3 and 7, sometimes 5 is used for the right channel) or to any other audio jack/socket.
 
