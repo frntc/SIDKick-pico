@@ -50,7 +50,7 @@ Please do not buy from those who knowingly violate the license and sell overpric
 ### Building / Soldering
 
 The first step when building the SKpico is soldering the surface-mount components. These are located on the **bottom side** of the PCB. 
-Please see the BOM and assembly information [SKpico with PWM or external DAC rev 0.1 (old)](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom.html), [SKpico with PWM or external DAC rev 0.2](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom_rev2.html) and [SKpico with onboard-DAC rev 0.2](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom_rev2_dac.html).
+Please see the BOM and assembly information [SKpico with PWM or external DAC rev 0.1 (old)](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom.html), [SKpico with PWM or external DAC rev 0.2](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom_rev2.html) and [SKpico with onboard-DAC rev 0.2](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom_rev2_dac.html). Note that the BOM for the onboard-DAC version shows a LM358 OpAmp (which works perfectly fine) -- for the more audiophile tinkerers I suggest using a TL072 (the PCBWay project uses the TL072!).
 
 The next step is to solder the pin header and sockets  which works best if you follow these steps:
 - solder the SID-socket pin header **with 14 pins** in the middle of the PCB
