@@ -162,7 +162,7 @@ The built-in configuration tool allows you to choose the emulated SID-types (or 
 The mouse/paddle-settings ("POT X/Y") deserve a bit of explanation: as one goal was to keep the interfacing circuitry simple, you might need to adjust some settings for the SKpico to work (best) with your mouse or paddles. Once you move the cursor to the potentiometer settings, a preview of the  values and movement is shown. You can now tune the configuration:
 - if a mouse moves only horizontally or not at all then choose the "level" option (by pressing 'V'). This option does not work with paddles!
 - if your mouse shows some more weird jumps, try the "outlier" option (key 'O'). There are two intensities: normal and aggressive outlier removal.
-- the "trigger"-option (key 'T') implements an alternative reading of mouse values (pressing 'T' multiple times selects different voltage thresholds); note, trigger does not work on Pico clones.
+- the "trigger"-option (key 'T') implements an alternative reading of mouse values (pressing 'T' multiple times selects different voltage thresholds); note, trigger does sometimes not work on Pico clones -- read "troubleshooting" below on how to fix this.
 - additional filters can reduce the inherent jittering of mice/paddles on the C64/C128 further: "median" is a simple yet good outlier rejection for remaining jitter. "smooth" uses a exponential weighted average (it comes in versions for paddles and mice).
 
 **NOTE**: potentiometer filtering modes do not work with two paddles/mice used simultaneously.
@@ -186,7 +186,9 @@ To add PRGs use *skpicopatch* (it's in the release package), with the respective
 
 When the SKpico-hardware is build correctly you should be able to start the configuration tool from Basic. If this does not work reliably, first check the soldering. In case it still does not work properly, or you experience glitches with the mouse or paddles (more than the normal slight jittering) or very old SID-tunes (reading write-only registers...) your computer might be one of the rare machines requiring different-than-default timings. They can be modified by calling *skpicopatch* with two additional parameters. Their default values are 15 and 11, smaller values mean less waiting for reading/writing signals to the bus. Most likely you need to decrease these values if you experience problems with the default timings.
 
-In case you use a Pico-clone with the RGB-LED and it does not blink, make sure the solder jumper for the RGB-LED is closed (it sometimes isn't).
+In case you use a **Pico-clone** with the RGB-LED (e.g. the black PCBs available from Chinese sellers) and it does not blink, make sure the solder jumper for the RGB-LED is closed (it sometimes isn't). 
+If your mouse or paddles do not work properly, e.g. the x-paddle influences the y-paddle and vice versa, check the solder pad named "VREF": there should be a large resistor to fix the paddles, or close the solder pad with a blob such that the "trigger"-option also works.
+In general, these PCBs seem to quite often have quality issues (bad soldering, even missing components), have a closer look at the PCBs if they behave strange.
 
 <br/>
 
