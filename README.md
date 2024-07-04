@@ -43,7 +43,12 @@ You can order the PCBs from PCBWay without or with SMD-parts preassembled: [SKpi
 
 You can also find my [other projects](https://www.pcbway.com/project/member/?bmbno=B5CDD8BE-199B-47) there. In case you don't have an account at PCBWay yet: [register via this link](https://pcbway.com/g/x1UjP0) and get "$5 of New User Free Credit".
 
-Even simpler, you can obtain pre-assembled SKpicos at fair prices from [Restore Store](https://restore-store.de) (not my shop). More official resellers will offer SKpicos soon. 
+Even simpler, you can obtain pre-assembled SKpicos from
+- [Restore Store](https://restore-store.de) (DE/EU)
+- [Retro8BITshop](https://retro8bitshop.com) (NL/EU)
+- [AmericanRetro.shop](https://americanretro.shop) (US)
+- [Plan-Net CSS](https://plannetcss.com) (CA)
+
 Please do not buy from those who knowingly violate the license and sell overpriced SKpicos out of greed (see [Hall of Shame](#license-hall-of-shame)).
 
 
