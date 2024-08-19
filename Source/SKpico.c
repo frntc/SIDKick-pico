@@ -1,8 +1,8 @@
 /*
-	   ______/  _____/  _____/     /   _/    /             /
-	 _/           /     /     /   /  _/     /   ______/   /  _/             ____/     /   ______/   ____/
-	  ___/       /     /     /   ___/      /   /         __/                    _/   /   /         /     /
-		 _/    _/    _/    _/   /  _/     /  _/         /  _/             _____/    /  _/        _/    _/
+       ______/  _____/  _____/     /   _/    /             /
+     _/           /     /     /   /  _/     /   ______/   /  _/             ____/     /   ______/   ____/
+      ___/       /     /     /   ___/      /   /         __/                    _/   /   /         /     /
+         _/    _/    _/    _/   /  _/     /  _/         /  _/             _____/    /  _/        _/    _/
   ______/   _____/  ______/   _/    _/  _/    _____/  _/    _/          _/        _/    _____/    ____/
 
   SKpico.c
@@ -98,15 +98,15 @@ uint8_t sidDACMode = SID_DAC_OFF;
 #define VERSION_STR_SIZE  36
 static const __not_in_flash( "mydata" ) unsigned char VERSION_STR[ VERSION_STR_SIZE ] = {
 #if defined( USE_SPDIF )
-  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '2', '0', '/', 0x53, 0x50, 0x44, 0x49, 0x46, 0, 0, 0, 0,   // version string to show
+  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '2', '1', '/', 0x53, 0x50, 0x44, 0x49, 0x46, 0, 0, 0, 0,   // version string to show
 #endif
 #if defined( USE_DAC ) 
-  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '2', '0', '/', 0x44, 0x41, 0x43, '6', '4', 0, 0, 0, 0,   // version string to show
+  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '2', '1', '/', 0x44, 0x41, 0x43, '6', '4', 0, 0, 0, 0,   // version string to show
 #elif defined( OUTPUT_VIA_PWM )
-  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '2', '0', '/', 0x50, 0x57, 0x4d, '6', '4', 0, 0, 0, 0,   // version string to show
+  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '2', '1', '/', 0x50, 0x57, 0x4d, '6', '4', 0, 0, 0, 0,   // version string to show
 #endif
   0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, 0x00, 0x00,   // signature + extension version 0
-  0, 14,                                            // firmware version with stepping = 0.12
+  0, 21,                                            // firmware version with stepping = 0.12
 #ifdef SID_DAC_MODE_SUPPORT                         // support DAC modes? which?
   SID_DAC_MONO8 | SID_DAC_STEREO8,
 #else
@@ -135,9 +135,11 @@ extern void readRegs( uint8_t *p1, uint8_t *p2 );
 #define PHI			12
 #define AUDIO_PIN	13
 #define SID			21
+#define RESET		22
 #define LED_BUILTIN 25
 #define POTX		( 10 )
 #define POTY		( 11 )
+#define bRESET		( 1 << RESET )
 #define bSID		( 1 << SID )
 #define bPHI		( 1 << PHI )
 #define bRW			( 1 << RW )
@@ -292,6 +294,11 @@ uint16_t ringBuf[ RING_SIZE ];
 uint32_t ringTime[ RING_SIZE ];
 uint8_t  ringWrite = 0;
 uint8_t  ringRead  = 0;
+
+void resetEverything() 
+{
+	ringRead = ringWrite = 0;
+}
 
 uint8_t stateGoingTowardsTransferMode = 0;
 
@@ -597,8 +604,6 @@ void runEmulation()
 				{
 					writeReSID2( ( cmd >> 8 ) & 0x1f, cmd & 255 );
 				}
-				//pio_sm_put_blocking( pio0, 1, 0xffffff );
-				//while ( 1 ) {}
 			} else
 			{
 				uint8_t reg = cmd >> 8;
@@ -1293,6 +1298,33 @@ handleSIDCommunication:
 				{
 					skipSmoothing = 0;
 
+					#define max( a, b ) ( (a)>(b)?(a):(b) )
+					#define min( a, b ) ( (a)<(b)?(a):(b) )
+					#ifdef DIAGROM_HACK
+						if ( DIAGROM_THRESHOLD >= 80 )
+						{
+							if ( abs( newPotXCandidate - newPotYCandidate ) < 10 && newPotXCandidate >= 50 && newPotXCandidate < DIAGROM_THRESHOLD )
+							{
+								if ( presumablyFixedResistor < 40000 )
+									presumablyFixedResistor ++;
+							} else
+							{
+								if ( presumablyFixedResistor )
+									presumablyFixedResistor --;
+							}
+							if ( presumablyFixedResistor > 1000 )
+								diagROM_PaddleOffset = min( DIAGROM_THRESHOLD - newPotXCandidate, ( presumablyFixedResistor - 1000 ) / 1000 ); else
+								diagROM_PaddleOffset = 0;
+							newPotXCandidate = min( 255, (int)newPotXCandidate + (int)diagROM_PaddleOffset );
+							newPotYCandidate = min( 255, (int)newPotYCandidate + (int)diagROM_PaddleOffset );
+						} else
+						if ( DIAGROM_THRESHOLD > 1 )
+						{
+							newPotXCandidate = min( 255, (int)newPotXCandidate + (int)DIAGROM_THRESHOLD );
+							newPotYCandidate = min( 255, (int)newPotYCandidate + (int)DIAGROM_THRESHOLD );
+						}
+					#endif
+
 					if ( !paddleFilterMode )
 					{
 						outRegisters[ 25 ] = newPotXCandidate;
@@ -1446,6 +1478,7 @@ handleSIDCommunication:
 		\__, \__/ | \| |    | \__>    |__) \__/ .__/    |  | /~~\ | \| |__/ |___ | | \| \__>
 	*/
 	uint8_t busTimingTestValue = 0;
+	uint8_t transferPRGSlot = 0;
 	while ( true )
 	{
 		//
@@ -1574,6 +1607,97 @@ handleSIDCommunication:
 					prgLaunch = 1;
 					stateInConfigMode = 0;
 				} else
+				if ( A == 0x14 || A == 0x15 ) // start bus timing banging: value #1 and #2
+				{
+					transferPRGSlot = 254 - 0x14 + A;
+					transferPayload = prgCode;
+					stateInConfigMode = CONFIG_MODE_CYCLES;
+				} else
+				if ( A == 0x1a ) // start PRG upload
+				{
+					transferPRGSlot = D;
+					transferPayload = prgCode;
+					stateInConfigMode = CONFIG_MODE_CYCLES;
+				} else
+				if ( A == 0x19 ) // set PRG upload page
+				{
+					transferPayload = prgCode + D * 256;
+					stateInConfigMode = CONFIG_MODE_CYCLES;
+				} else
+				if ( A == 0x16 ) // upload one PRG byte
+				{
+					*transferPayload = D;
+					transferPayload ++;
+					stateInConfigMode = CONFIG_MODE_CYCLES;
+				} else
+				if ( A == 0x17 ) // end PRG upload, or end of bus timing banging!
+				{
+					SET_CLOCK_125MHZ
+					DELAY_Nx3p2_CYCLES( 85000 );
+
+					if ( transferPRGSlot >= 254 )
+					{
+						int *histo = (int*)&prgCode[ 16384 ];
+						memset( histo, 0, 256 * sizeof( int ) );
+						int sz = transferPayload - prgCode;
+						for ( int i = 0; i < sz; i++ )
+							histo[ prgCode[ i ] ] ++;
+						int maxV = histo[ 0 ], maxIdx = 0;
+						for ( int i = 1; i < sz; i++ )
+							if ( histo[ i ] > maxV )
+							{
+								maxV = histo[ i ];
+								maxIdx = i;
+							}
+
+						if ( transferPRGSlot == 254 )
+						{
+							DELAY_READ_BUS = maxIdx; 
+						}else
+						{
+							DELAY_PHI2     = maxIdx;
+
+							unsigned char *tmp = &prgCode[ 16384 + 1024 ];
+							{
+								#define FLASH_BUSTIMING_OFFSET ((uint32_t)&busTimings[ 0 ] - XIP_BASE)
+								memcpy( tmp, (void*)FLASH_BUSTIMING_OFFSET, FLASH_SECTOR_SIZE );
+								DELAY_READ_BUS_local = tmp[ 0 ] = DELAY_READ_BUS;
+								DELAY_PHI2_local     = tmp[ 1 ] = DELAY_PHI2;
+
+								flash_range_erase  ( FLASH_BUSTIMING_OFFSET, FLASH_SECTOR_SIZE );
+								flash_range_program( FLASH_BUSTIMING_OFFSET, tmp, FLASH_SECTOR_SIZE );
+							}
+						}
+					} else
+					{
+						int sz = transferPayload - prgCode - 18;	// -18 because menu entry is 18 byte (string null-terminated)
+
+						uint8_t *dirEntry = &prgDirectory[ transferPRGSlot * 24 ];
+
+						memcpy( dirEntry, prgCode + sz, 18 );
+						dirEntry[ 18 ] = 0;
+						dirEntry[ 19 ] = 0;
+						dirEntry[ 20 ] = transferPRGSlot;
+						dirEntry[ 21 ] = 0;
+						dirEntry[ 22 ] = sz & 255;
+						dirEntry[ 23 ] = sz >> 8;
+
+						#define FLASH_DIR_OFFSET ((uint32_t)&prgDirectory_Flash[ 0 ] - XIP_BASE)
+						flash_range_erase  ( FLASH_DIR_OFFSET, FLASH_SECTOR_SIZE );
+						flash_range_program( FLASH_DIR_OFFSET, prgDirectory, FLASH_SECTOR_SIZE );
+
+						prgCode[ 0 ] = 1;
+						prgCode[ 1 ] = 8;
+
+						#define FLASH_PRG_OFFSET ((uint32_t)&prgRepository[ transferPRGSlot * 65536 ] - XIP_BASE)
+						flash_range_erase  ( FLASH_PRG_OFFSET, 65536 );
+						flash_range_program( FLASH_PRG_OFFSET, prgCode, 65536 );
+					}
+					SET_CLOCK_FAST
+					prgLaunch = 0;
+					currentPRG = 254;
+					stateInConfigMode = 0;
+				} else
 				if ( A == 0x10 )
 				{
 					SET_CLOCK_125MHZ
@@ -1646,7 +1770,6 @@ void writeConfiguration()
 	config[ 63 ] = c >> 8;
 
 	flash_range_program( FLASH_CONFIG_OFFSET, config, FLASH_PAGE_SIZE );
-	SET_CLOCK_FAST
 
 	SET_CLOCK_125MHZ
 	DELAY_Nx3p2_CYCLES( 85000 );

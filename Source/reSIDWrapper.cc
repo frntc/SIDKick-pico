@@ -309,11 +309,16 @@ extern "C"
     {
         int32_t sid1 = sid16->output();
 
-        int32_t L = sid1 * actVolSID1_Left + fm * actVolSID2_Left;
-        int32_t R = sid1 * actVolSID1_Right + fm * actVolSID2_Right;
+        int32_t L = sid1 * actVolSID1_Left + (fm * actVolSID2_Left * 2);
+        int32_t R = sid1 * actVolSID1_Right + (fm * actVolSID2_Right * 2);
 
-        *left = L >> 16;
-        *right = R >> 16;
+        L >>= 16; R >>= 16;
+        if ( L > 32767 ) L = 32767;
+        if ( R > 32767 ) R = 32767;
+        if ( L < -32767 ) L = -32767;
+        if ( R < -32767 ) R = -32767;
+        *left = L;
+        *right = R;
 
     #ifdef USE_RGB_LED
         // SID #1 voices map to red, green, blue
@@ -344,9 +349,9 @@ extern "C"
             for ( int i = 0; i < 9; i++ )
             {
                 extern int32_t outputCh[ 9 ];
-                voiceOutAcc[ 0 ] += ( colorMap[ i ][ 0 ] * outputCh[ i ] ) >> 2;
-                voiceOutAcc[ 1 ] += ( colorMap[ i ][ 1 ] * outputCh[ i ] ) >> 2;
-                voiceOutAcc[ 2 ] += ( colorMap[ i ][ 2 ] * outputCh[ i ] ) >> 2;
+                voiceOutAcc[ 0 ] += ( colorMap[ i ][ 0 ] * outputCh[ i ] ) >> 1;
+                voiceOutAcc[ 1 ] += ( colorMap[ i ][ 1 ] * outputCh[ i ] ) >> 1;
+                voiceOutAcc[ 2 ] += ( colorMap[ i ][ 2 ] * outputCh[ i ] ) >> 1;
             }
         nSamplesAcc ++;
     #endif
