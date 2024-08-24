@@ -82,7 +82,7 @@ The next step is to solder the pin header and sockets  which works best if you f
 
 <img align="right" height="80" src="Images/SKpico2040DAC_RGBLED.jpg">
 
-This PCB is probably not well suited for hand soldering. In case you want to give it a try, here's the [interactive BOM](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom_SKpico2040DAC.html). Note that the PCBWay-project does not include the optional RGB-LED on the top side (two sided SMD-mounting is much more expensive), for which you need a WS2812B LED (SMD-4P, 5x5mm footprint) with the pinout shown on the image, e.g. the World Semi WS2812B-HS01/W. For the configuration of the SKpico2040DAC see below.
+This PCB is probably not well suited for hand soldering. In case you want to give it a try, here's the [interactive BOM](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom_SKpico2040DAC.html). The flash in the BOM is a larger one and sometimes hard to source, but a "W25Q16RVXHJQ TR" works (and has enough capacity). Note that the PCBWay-project does not include the optional RGB-LED on the top side (two sided SMD-mounting is much more expensive), for which you need a WS2812B LED (SMD-4P, 5x5mm footprint) with the pinout shown on the image, e.g. the World Semi WS2812B-HS01/W. For the configuration of the SKpico2040DAC see below.
 
 ## Installing a SIDKick pico
 
