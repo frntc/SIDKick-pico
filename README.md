@@ -51,6 +51,7 @@ Even simpler, you can obtain pre-assembled SKpicos from
 - [Retro8BITshop](https://retro8bitshop.com) (NL/EU)
 - [AmericanRetro.shop](https://americanretro.shop) (US)
 - [Plan-Net CSS](https://plannetcss.com) (CA)
+- [CombiTronics](https://www.combitronics.nl) (NL)
 
 Please do not buy from those who knowingly violate the license and sell overpriced SKpicos out of greed (see [Hall of Shame](#license-hall-of-shame)).
 
