@@ -38,7 +38,7 @@ You can listen to the SIDKick pico in two videos by emulaThor: <br>
 
 ## How to get a SIDKick pico
 
-This section summarizes building and setting up the hardware. 
+This section summarizes building and setting up the hardware. The [tables below](#firmware-which-one-to-choose) show hardware variants and also the firmware to choose. Note that 1) hardware variants with built-in DAC always output sound via DAC (also via the C64/C128 mainboard), and 2) PWM output is mono (but dual SID or SID+FM emulation is still possible, audio is downmixed).
 
 ### PCB ordering
 
@@ -269,12 +269,41 @@ If a diagnostic ROM reports "bad SID" this might be due to too low values (this 
 If you can't hear digis in Ghostbusters (or any other old tune using 4-bit samples via $d418): don't forget to configure the SKpico to use 6581 or 8580 with digiboost.
 <br/>
 
+## Firmware: Which one to choose?
+
+The following tables provide an overview which firmware is the right one for your SKpico.   The file name format is "SKpico" + hardware revision ("1" or "2") + sound output ("_DAC", "_PWM", or "_DAC_PWM") + blinking ("_LED", "_RGB", or no LED) + "uf2". Note that hardware revision and firmware version are two different things.
+
+| SIDKick hardware     | DAC      | output to C64/C128 | connector             | firmware          |
+|----------------------|----------|--------------------|-----------------------|-------------------|
+| v0.1                 | external | PWM                | BCK-DIN-CK-GND-VCC    | SKpico1\*.uf2      |
+| [SIDKick pico 0.2](https://www.pcbway.com/project/shareproject/W160781ASB18_Gerber_1790f9c8.html)     | external | PWM                | BCK-DIN-CK-GND-VCC    | SKpico2\*.uf2      |
+| [SIDKick pico 0.2 DAC](https://www.pcbway.com/project/shareproject/SIDKick_pico_0_2_DAC_SID_6581_8580_replacement_for_C64_C128_01088623.html) | built-in | DAC                | R-GND-L-GND (lineout) | SKpico2\*.uf2      |
+| [SKpico2040DAC](https://www.pcbway.com/project/shareproject/SIDKick_pico_2040DAC_SID_6581_8580_replacement_for_C64_C128_a31d896d.html)        | built-in | DAC                | R-GND-L (lineout)     | SKpico2040DAC.uf2 |
+
+<br/>
+
+| sound output | DAC | PWM | remark                                      |
+|------------------|-----|-----|---------------------------------------------|
+| \*_DAC\*.uf2       | yes | no  |                                             |
+| \*_PWM\*.uf2       | no  | yes | (PWM not connected on SIDKick pico 0.2 DAC) |
+| \*_DAC_PWM\*.uf2   | yes | yes | (PWM not connected on SIDKick pico 0.2 DAC) |
+
+<br/>
+
+| LEDs    | single color | RGB | remark                          |
+|-------------------|--------------|-----|---------------------------------|
+| \*_LED.uf2         | yes          | no  |                                 |
+| \*_RGB.uf2         | no           | yes | (do not use on genuine Pi Pico) |
+| SKpico2040DAC.uf2 | no           | yes |                                 |
+| otherwise         | no           | no  |                                 |
+
+<br/>
+
 ## Firmware Building (if you want to):
 
 The firmware has been built using the Raspberry Pi Pico SDK.
 
 <br />
-  
  
 ## Disclaimer
 
