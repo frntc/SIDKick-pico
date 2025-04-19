@@ -343,6 +343,10 @@ Please welcome these sellers to the Hall of Shame:
 <td>  <img  height="150"  src="Images/hos_4.jpg">  </td>
 <td>Same seller as on Amibay and 1st entry (check out the photos)...
 </tr>
+<tr>
+<td>  <img  height="150"  src="Images/hos_5.jpg">  </td>
+<td>For a little more you can get the 2040DAC version from *official* sellers. And you don't just take copyrighted images from others either...
+</tr>
 </table>
 
 <br />
