@@ -347,6 +347,10 @@ Please welcome these sellers to the Hall of Shame:
 <td>  <img  height="150"  src="Images/hos_5.jpg">  </td>
 <td>For a little more you can get the 2040DAC version from *official* sellers. And you don't just take images from others either without permission...
 </tr>
+<tr>
+<td>  <img  height="150"  src="Images/hos_6.jpg">  </td>
+<td>A very active HoS-member offering not just one, but three of my projects :-(
+</tr>
 </table>
 
 <br />
