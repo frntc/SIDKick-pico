@@ -22,7 +22,7 @@ The emulation is based on an extended version of reSID 0.16 (with parts from reS
 <br>
 
 The hardware variants mainly differ in
-- size: fully integrated (tiny, left/center-left image) and interface board (larger, center-right image)
+- size: fully integrated (tiny, left/center-left image) and interface board (larger, center image)
 - sound output using
     - pulse width modulation (PWM): lower volume level, output mixed to mono
     - digital-analog converter (DAC): high-quality output, high volume level, line-out (can be fed directly to modulator replacements or amplifiers)
@@ -37,6 +37,7 @@ The hardware variants mainly differ in
 <img src="Images/SKpico2350CR.jpg" height="150">
 <img src="Images/SKpico_DAC2.jpg" height="150">
 <img src="Images/SKpico_menu020.jpg" height="150">  
+<img src="Images/SKpico_menu_filter.jpg" height="150">  
 </p>
 <br />
 
