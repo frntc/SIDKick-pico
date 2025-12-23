@@ -6,25 +6,36 @@
 
 The SIDKick pico ("SKpico") is a drop-in replacement for the SID 6581/8580 sound chips in the Commodore 64 and 128 computers, and it can also emulate the SFX Sound Expander (FM). 
 It has been designed as an inexpensive alternative to other replacements while not making compromises regarding quality. 
-In its original form, it consists of a simple interface board and a Raspberry Pi Pico (or compatible clone). There is also 
-a fully integrated all-feature-variant slightly larger than an original SID including the RP2040, flash memory, DAC, and operational amplifier.
-The emulation is based on an extended version of reSID 0.16 (with parts from reSID 1.0), and also includes a few additional features:
 
--	dual 6581 and/or 8580 emulation based on reSID (optional: extension for digi-playing techniques), or 6581/8580 plus FM emulation
--	2nd-SID address at $d400, $d420, $d500, $d420 + $d500 simultaneously, $de00, $df00 (on C128 no $d500), or any address when an external chip select signal is used (e.g. on Ultimate 64 boards)
--	paddle/mouse support
+There exist two lines of SKpicos: first, a tiny SKpico, only slightly larger than an original SID (all components on board), and second, 
+an interface board hosting a Raspberry Pi Pico/Pico 2 (or compatible clone). 
+
+The emulation is based on an extended version of reSID 0.16 (with parts from reSID 1.0 plus some extras), and also includes a few unique features:
+
+-	dual 6581 and/or 8580 emulation, or 6581/8580 plus FM emulation
+- advanced SID filter settings plus 19x measured 6581 filter curves 
+-	2nd-SID address at $d400, $d420, $d500, $d420 + $d500 simultaneously, $de00, $df00 (on C128 no $d500), or any address when an external chip select signal is used (e.g. for the C64 Ultimate or on Ultimate 64 boards)
+-	paddle/mouse support with optional anti-jittering
 -	built-in configuration menu (launch with "SYS 54301"/"SYS 54333", also from C128-mode)
 - built-in PRG launcher ("SYS 54333,0" etc. or from the menu), PRGs can be integrated into the firmware or flashed from the configuration menu
-- three hardware variants ...
-    - the fully integrated all-feature-variant ("SKpico2040DAC"),
-    - interface board for PWM (mono) through the C64/C128 mainboard and/or in stereo via a separate PCM5102A-DAC-board, or
-    - interface board with onboard-DAC, output through the C64/C128 mainboard and/or line-out
+
+<br>
+
+The hardware variants mainly differ in
+- size: fully integrated (tiny, left/center-left image) and interface board (larger, center-right image)
+- sound output using
+    - pulse width modulation (PWM): lower volume level, output mixed to mono
+    - digital-analog converter (DAC): high-quality output, high volume level, line-out (can be fed directly to modulator replacements or amplifiers)
+    - interface boards with PWM can be combined with an external DAC.
+- microcontroller (the SID/FM emulation is identical regardless of which microcontroller is used)
+    - interface boards can be used with Raspberry Pi Pico or Pico2, or compatible clones
+    - the tiny SKpicos use the RP235x (new variant, coming soon!) or the RP2040
+    
 
 <p align="center" font-size: 30px;>
-<img src="Images/SKpico_ex1.jpg" height="150">
-<img src="Images/SKpico_DAC2.jpg" height="150">
-<img src="Images/step0.jpg" height="150">
 <img src="Images/SKpico2040DAC.jpg" height="150">
+<img src="Images/SKpico2350CR.jpg" height="150">
+<img src="Images/SKpico_DAC2.jpg" height="150">
 <img src="Images/SKpico_menu020.jpg" height="150">  
 </p>
 <br />
@@ -38,16 +49,20 @@ You can listen to the SIDKick pico in two videos by emulaThor: <br>
 
 ## How to get a SIDKick pico
 
-This section summarizes building and setting up the hardware. The [tables below](#firmware-which-one-to-choose) show hardware variants and also the firmware to choose. Note that 1) hardware variants with built-in DAC always output sound via DAC (also via the C64/C128 mainboard), and 2) PWM output is mono (but dual SID or SID+FM emulation is still possible, audio is downmixed).
+This section summarizes building and setting up the hardware. The [tables below](#firmware-which-one-to-choose) show hardware variants and also the firmware to choose. Note that 1) hardware variants with built-in DAC always output sound via DAC, and 2) PWM output is mono (but dual SID or SID+FM emulation is still possible, audio is downmixed).
 
 ### PCB ordering
 
-You can order the PCBs from PCBWay without or with SMD-parts preassembled: [SKpico with PWM or external DAC](https://www.pcbway.com/project/shareproject/W160781ASB18_Gerber_1790f9c8.html), [SKpico with onboard-DAC](https://www.pcbway.com/project/shareproject/SIDKick_pico_0_2_DAC_SID_6581_8580_replacement_for_C64_C128_01088623.html), and [SKpico2040DAC](https://www.pcbway.com/project/shareproject/SIDKick_pico_2040DAC_SID_6581_8580_replacement_for_C64_C128_a31d896d.html).
+You can order the PCBs from PCBWay without or with SMD-parts preassembled: 
+- *coming soon* SKpico2350DAC (tiny, RP2354, with DAC),
+- *coming soon* SKpico2350PWM (tiny, RP2354, PWM-only, no external DAC possible),
+- [SKpico2040DAC](https://www.pcbway.com/project/shareproject/SIDKick_pico_2040DAC_SID_6581_8580_replacement_for_C64_C128_a31d896d.html) (tiny, with DAC),
+- [SKpico-interface board with PWM](https://www.pcbway.com/project/shareproject/W160781ASB18_Gerber_1790f9c8.html) (external DAC possible), 
+- [SKpico-interface board with DAC onboard](https://www.pcbway.com/project/shareproject/SIDKick_pico_0_2_DAC_SID_6581_8580_replacement_for_C64_C128_01088623.html).
 
 You can also find my [other projects](https://www.pcbway.com/project/member/?bmbno=B5CDD8BE-199B-47) there. In case you don't have an account at PCBWay yet: [register via this link](https://pcbway.com/g/x1UjP0) and get "$5 of New User Free Credit".
 
 Even simpler, you can obtain pre-assembled SKpicos from
-- [Restore Store](https://restore-store.de) (DE/EU)
 - [Retro8BITshop](https://retro8bitshop.com) (NL/EU)
 - [AmericanRetro.shop](https://americanretro.shop) (US)
 - [Plan-Net CSS](https://plannetcss.com) (CA)
@@ -56,10 +71,10 @@ Even simpler, you can obtain pre-assembled SKpicos from
 Please do not buy from those who knowingly violate the license and sell overpriced SKpicos out of greed (see [Hall of Shame](#license-hall-of-shame)).
 
 
-### Building / Soldering (interface board)
+### Building the Interface Board-variant
 
 The first step when building the SKpico is soldering the surface-mount components. These are located on the **bottom side** of the PCB. 
-Please see the BOM and assembly information [SKpico with PWM or external DAC rev 0.1 (old)](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom.html), [SKpico with PWM or external DAC rev 0.2](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom_rev2.html) and [SKpico with onboard-DAC rev 0.2](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom_rev2_dac.html). Note that the BOM for the onboard-DAC version shows a LM358 OpAmp (which works perfectly fine) -- for the more audiophile tinkerers I suggest using a TL072 (the PCBWay project uses the TL072!).
+Please see the BOM and assembly information [SKpico with PWM or external DAC rev 0.2](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom_rev2.html) and [SKpico with onboard-DAC rev 0.2](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom_rev2_dac.html). Note that the BOM for the onboard-DAC version shows a LM358 OpAmp (which works perfectly fine) -- for the more audiophile tinkerers I suggest using a TL072 (the PCBWay project uses the TL072!).
 
 The next step is to solder the pin header and sockets  which works best if you follow these steps:
 - solder the SID-socket pin header **with 14 pins** in the middle of the PCB
@@ -79,15 +94,22 @@ The next step is to solder the pin header and sockets  which works best if you f
 
 <br />
 
-### Building / Soldering (SKpico2040DAC)
+### Building the SKpico2354* / SKpico2040DAC
 
 <img align="right" height="80" src="Images/SKpico2040DAC_RGBLED.jpg">
 
-This PCB is probably not well suited for hand soldering. In case you want to give it a try, here's the [interactive BOM](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom_SKpico2040DAC.html). The flash in the BOM is a larger one and sometimes hard to source, but a "W25Q16RVXHJQ TR" works (and has enough capacity). Note that the PCBWay-project does not include the optional RGB-LED on the top side (two sided SMD-mounting is much more expensive), for which you need a WS2812B LED (SMD-4P, 5x5mm footprint) with the pinout shown on the image, e.g. the World Semi WS2812B-HS01/W. For the configuration of the SKpico2040DAC see below.
+These PCB are tough for hand soldering. In case you want to give it a try, here's the interactive BOM for 
+- *coming soon* SKpico2350DAC 
+- *coming soon* SKpico2350PWM 
+- [SKpico2040DAC](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom_SKpico2040DAC.html) 
+
+The SK2354-variants have some unpopulated components. The flash in the 2040DAC-BOM is a larger one and sometimes hard to source, but a "W25Q16RVXHJQ TR" works (and has enough capacity). For the configuration of the SKpico2040DAC see below, the SKpico2354s do not require further hardware configuration.
+
+Note that the PCBWay-projects do not include the optional RGB-LED on the top side (two sided SMD-mounting is much more expensive), for which you need a WS2812B LED (SMD-4P, 5x5mm footprint) with the pinout shown on the image, e.g. the World Semi WS2812B-HS01/W. 
 
 ## Installing a SIDKick pico
 
-Pay attention to *correctly orient and insert* the RPi Pico and the SKpico (see backside of PCB for markings) into the SID-socket of your C64 or C128. Note that in a C128D you might need to remove one support bolt of the power supply to fit the SKpico. 
+Pay attention to *correctly orient and insert* the RPi Pico and the SKpico (see backside of PCB for markings) into the SID-socket of your C64 or C128. Note that in a C128D you might need to remove one support bolt of the power supply to fit the SKpico interface boards. 
 
 You can choose to emulate a single SID only. If you want to use a second SID or FM sound you need to connect additional cables to get the signals to the SKpico as they are not available at the SID socket:
 
@@ -119,6 +141,10 @@ The built-in configuration tool autodetects and displays which cables have been 
 
 ### Audio Output
 
+#### SKpico2350*
+
+Nothing to do :-) For the SKpico2350DAC you can tap the line-out signal at the 3 pins at the top-left corner.
+
 #### Interface board without DAC
 
 <img align="right" height="160" src="Images/DAC_0.jpg">
@@ -145,7 +171,6 @@ Optionally you can also close the two solder jumpers marked "R" to output the ri
 
 #### SKpico2040DAC
 
-
 <img align="right" height="120" src="Images/SKpico2040DAC_lineout.jpg">
 There are two sound routing options: using the stereo-line out connector, and via the C64/C128 mainboard. Enabling line out and routing via mainboard work simultaneously (use jumper settings as for mainboard below).
 
@@ -167,13 +192,13 @@ Connecting additional address lines works as for the other variants, the connect
 
 ### Powering the SKpico
 
-The SKpico is powered from the C64/C128-mainboard, DO NOT power from USB.
+The SKpico is powered from the C64/C128-mainboard, DO NOT power from USB at the same time! 
 
 <br>
   
+## Firmware Uploading
 
-
-## Firmware Uploading (interface board)
+### Interface Board
 
 The SKpico-PCBs do not need to be programmed in any way. Only the RPi Pico needs to be flashed with the pre-built binaries (available in the release package). 
 
@@ -183,10 +208,16 @@ The procedure is simple: press and hold the 'Boot'-button on the RPi pico, then 
 
 <br>
 
-## Firmware Uploading (SKpico2040DAC)
+### SKpico2350*
+
+Flashing the firmware still works via USB. You can either use a cheap USB-breakout board or solder a (magnetic) USB-connector to the SKpico. The boot button can either be bridged (before and while connecting to USB) using a wire, or you can solder a SMD-tactile button or pinheader.  
+
+<br> 
+
+### SKpico2040DAC
 
 <img align="right" height="120" src="Images/SKpico2040DAC_usb.jpg">
-Flashing the firmware still works via USB, however, the packed footprint makes an adapter (or fiddling) necessary.
+Again flashing the firmware works via USB, however, the packed footprint makes an adapter (or fiddling) necessary.
 For this, the SKpico2040DAC-PCB has a two pin connector labelled "boot" which need to be shortened before connecting USB (it's the same as the boot button on Picos) -- and a four pin USB-connector directly above, pins labelled GND, D+, D-, and 5V. 
 
 
@@ -211,12 +242,12 @@ On the adapter board you need to close the "boot"-solder jumper, and connect the
 
 **Hint**: when building the adapter use several stacked adapter-PCBs to align the pogo pins.
 
-### Other options
+#### More Options
 
 Any other solution for closing "boot" and connecting to USB works as well. The boot-jumper can easily be closed using a dupont wire. For there rest there exist test probes / adapters from "4-pins with 1.27mm-spacing" to something more convenient (search for test clamp, programming probe, ...). 
 And here's one more variant: 5V and GND can be supplied via SID pins, leaving only D+/D- (this can even be handled using a USB-breakout board plus some wires).
 
-
+<br>
 
 ### Sidekick64-/RAD Expansion Unit-InterOp
 If you're using [Sidekick64](https://github.com/frntc/Sidekick64) or [RAD Expansion Unit](https://github.com/frntc/RAD) then you should update to their latest firmwares.
@@ -256,15 +287,17 @@ To add PRGs either use
 
 ## Troubleshooting
 
-When the SKpico-hardware is build correctly you should be able to start the configuration tool from Basic. If this does not work reliably, first check the soldering. In case it still does not work properly, or you experience glitches with the mouse or paddles (more than the normal slight jittering) or very old SID-tunes (reading write-only registers...) your computer might be one of the rare machines requiring different-than-default timings. They can be modified by calling *skpicopatch* with two additional parameters. Their default values are 15 and 11, smaller values mean less waiting for reading/writing signals to the bus. Most likely you need to decrease these values if you experience problems with the default timings.
+When the SKpico-hardware is build correctly you should be able to start the configuration tool from Basic. If this does not work reliably, first check the soldering. In case it still does not work properly, or you experience glitches with the mouse or paddles (more than the normal slight jittering) or very old SID-tunes (reading write-only registers...) your computer might be one of the rare machines requiring different-than-default timings (which have been updated with firmware 0.22). 
 
-In case you do not want to flash the firmware again, you can try to modify the timings using the **SKpicotiming tool** running on the C64.
+**Hint:** in case you need to modify timings, you can press reset (on any cartridge or other hardware extension) for 5 seconds to cycle between three timing configurations (the LED indicates when 5 seconds are over and you can release reset). If you press reset for >10 seconds, the SKpico will restore to "factory defaults", i.e. whenever something goes wrong, you can reset the device completely.
+
+If you really need handcrafted timings, then they can be modified by calling *skpicopatch* with two additional parameters. Their default values are 12 and 3, smaller values mean less waiting for reading/writing signals to the bus. In case you do not want to flash the firmware again, you can also try to modify the timings using the **SKpicotiming tool** running on the C64.
 
 In case you use a **Pico-clone** with the RGB-LED (e.g. the black PCBs available from Chinese sellers) and it does not blink, make sure the solder jumper for the RGB-LED is closed (it sometimes isn't). 
 If your mouse or paddles do not work properly, e.g. the x-paddle influences the y-paddle and vice versa, check the solder pad named "VREF": there should be a large resistor to fix the paddles, or close the solder pad with a blob such that the "trigger"-option also works.
 In general, these PCBs seem to quite often have quality issues (bad soldering, even missing components), have a closer look at the PCBs if they behave strange.
 
-If a diagnostic ROM reports "bad SID" this might be due to too low values (this might be due to capacitors becoming old, ...). You can also check the values with a diagnostic harness in the configuration tool (afaik the diagnostic ROMs check for values between 80 to 120). If they are too low, and you want the diagnostic ROM to pass, you can offset them (statically or only then a diagnostic situation is detected) using SKpicopatch.
+If a diagnostic ROM reports "bad SID" this might be due to too low values (this might be due to capacitors becoming old, ...). You can also check the values with a diagnostic harness in the configuration tool (afaik the diagnostic ROMs check for values between 80 to 120). If they are too low, and you want the diagnostic ROM to pass, you can offset them using SKpicopatch, or more comfortably in the configuration tool: go to "Pot X/Y" and press +/- (the offsets are applied statically, or only then a diagnostic situation is detected which is indicated by an arrow pointing upwards in the config tool).
 
 If you can't hear digis in Ghostbusters (or any other old tune using 4-bit samples via $d418): don't forget to configure the SKpico to use 6581 or 8580 with digiboost.
 <br/>
@@ -279,6 +312,8 @@ The following tables provide an overview which firmware is the right one for you
 | [SIDKick pico 0.2](https://www.pcbway.com/project/shareproject/W160781ASB18_Gerber_1790f9c8.html)     | external | PWM                | BCK-DIN-CK-GND-VCC    | SKpico2\*.uf2      |
 | [SIDKick pico 0.2 DAC](https://www.pcbway.com/project/shareproject/SIDKick_pico_0_2_DAC_SID_6581_8580_replacement_for_C64_C128_01088623.html) | built-in | DAC                | R-GND-L-GND (lineout) | SKpico2\*.uf2      |
 | [SKpico2040DAC](https://www.pcbway.com/project/shareproject/SIDKick_pico_2040DAC_SID_6581_8580_replacement_for_C64_C128_a31d896d.html)        | built-in | DAC                | R-GND-L (lineout)     | SKpico2040DAC.uf2 |
+| SKpico2350PWM        | n/a | PWM                | not used      | SKpico2350PWM.uf2 |
+| SKpico2350DAC        | built-in | DAC                | R-GND-L (lineout)      | SKpico2350DAC.uf2 |
 
 <br/>
 
@@ -307,7 +342,7 @@ The firmware has been built using the Raspberry Pi Pico SDK.
  
 ## Disclaimer
 
-I'm a hobbyist, no electronics engineer. I'm doing my best to ensure that my projects are working at intended, but I cannot give any guarantee for anything. Be careful not to damage your RPi Pico, PC, or Commodore, or anything attached to it. I am not responsible if you or your hardware gets damaged. Note that the RPi Pico/RP2040 gets overclocked. If you don't know what you're doing, better don't... use everything at your own risk.
+I'm a hobbyist, no electronics engineer. I'm doing my best to ensure that my projects are working at intended, but I cannot give any guarantee for anything. Be careful not to damage your RPi Pico, PC, or Commodore, or anything attached to it. I am not responsible if you or your hardware gets damaged. Note that the RPi Pico/Pico2/RP2040/RP2350 get overclocked. The SKpico2350* does not use level shifters. If you don't know what you're doing, better don't... use everything at your own risk.
 
 <br />
   
@@ -363,4 +398,4 @@ Thanks for reading until the very end. I'd be happy to hear from you if you deci
 
 ## Trademarks
 
-Raspberry Pi (Pico) is a trademark of Raspberry Pi Ltd.
+Raspberry Pi (Pico/Pico2) is a trademark of Raspberry Pi Ltd.
