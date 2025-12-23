@@ -123,7 +123,7 @@ class Filter
 public:
   Filter();
 
-  void enable_filter(bool enable);
+  //void enable_filter(bool enable);
   void set_chip_model(chip_model model);
 
   RESID_INLINE
@@ -148,12 +148,18 @@ public:
   void fc_default(const fc_point*& points, int& count);
   PointPlotter<sound_sample> fc_plotter();
 
+  void set8580FilterCoeffs( int low, int center );
+  void set6581FilterCoeffs( const signed short *preset, int minFreq, int maxFreq, int distortion );
+  void set6581FilterCoeffsC( int preset, int minFreq, int maxFreq );
+
 protected:
+  chip_model chipModel;
+
   void set_w0();
   void set_Q();
 
   // Filter enabled.
-  bool enabled;
+  //bool enabled;
 
   // Filter cutoff frequency.
   reg12 fc;
@@ -186,10 +192,15 @@ protected:
   sound_sample w0, w0_ceil_1, w0_ceil_dt;
   sound_sample _1024_div_Q;
 
+  int distortionStrength;
+
   // Cutoff frequency tables.
   // FC is an 11 bit register.
-  sound_sample f0_6581[2048];
-  sound_sample f0_8580[2048];
+  static sound_sample f0_6581[2048];
+  static sound_sample f0_6581_reSID[2048];
+  static sound_sample f0_8580[2048];
+  static sound_sample f0_8580_reSID[2048];
+  static sound_sample f0_6581_DAC[2048];
   sound_sample* f0;
   static fc_point f0_points_6581[];
   static fc_point f0_points_8580[];
@@ -233,11 +244,11 @@ void Filter::clock(sound_sample voice1,
   ext_in >>= 7;
 
   // This is handy for testing.
-  if (!enabled) {
+  /*if (!enabled) {
     Vnf = voice1 + voice2 + voice3 + ext_in;
     Vhp = Vbp = Vlp = 0;
     return;
-  }
+  }*/
 
   // Route voices into or around filter.
   // The code below is expanded to a switch for faster execution.
@@ -341,8 +352,8 @@ void Filter::clock(cycle_count delta_t,
 		   sound_sample ext_in)
 {
   // Scale each voice down from 20 to 13 bits.
-  voice1 >>= 7;
-  voice2 >>= 7;
+//  voice1 >>= 7;
+//  voice2 >>= 7;
 
   // NB! Voice 3 is not silenced by voice3off if it is routed through
   // the filter.
@@ -350,20 +361,20 @@ void Filter::clock(cycle_count delta_t,
     voice3 = 0;
   }
   else {
-    voice3 >>= 7;
+//    voice3 >>= 7;
   }
 
-  ext_in >>= 7;
+//  ext_in >>= 7;
 
   // Enable filter on/off.
   // This is not really part of SID, but is useful for testing.
   // On slow CPUs it may be necessary to bypass the filter to lower the CPU
   // load.
-  if (!enabled) {
+  /*if (!enabled) {
     Vnf = voice1 + voice2 + voice3 + ext_in;
     Vhp = Vbp = Vlp = 0;
     return;
-  }
+  }*/
 
   // Route voices into or around filter.
   // The code below is expanded to a switch for faster execution.
@@ -372,6 +383,13 @@ void Filter::clock(cycle_count delta_t,
   // (filt3 ? Vi : Vnf) += voice3;
 
   sound_sample Vi;
+
+  // Vi = 0; Vnf = 0;
+  // if ( filt & 1 ) Vi += voice1; else Vnf += voice1;
+  // if ( filt & 2 ) Vi += voice2; else Vnf += voice2;
+  // if ( filt & 4 ) Vi += voice3; else Vnf += voice3;
+  // Vnf += ext_in;
+
 
   switch (filt) {
   default:
@@ -441,11 +459,17 @@ void Filter::clock(cycle_count delta_t,
     break;
   }
 
+  Vi >>= 7;
+  Vnf >>= 7;
+
   // Maximum delta cycles for the filter to work satisfactorily under current
   // cutoff frequency and resonance constraints is approximately 8.
   cycle_count delta_t_flt = 8;
 
+  #define FILTER_WITH_DISTORTION
+
   while (delta_t) {
+
     if (delta_t < delta_t_flt) {
       delta_t_flt = delta_t;
     }
@@ -458,10 +482,93 @@ void Filter::clock(cycle_count delta_t,
     // Vhp = Vbp/Q - Vlp - Vi;
     // dVbp = -w0*Vhp*dt;
     // dVlp = -w0*Vbp*dt;
-    sound_sample w0_delta_t = w0_ceil_dt*delta_t_flt >> 6;
 
+#ifdef FILTER_WITH_DISTORTION
+
+    sound_sample dVbp;
+    sound_sample dVlp;
+    
+    if ( chipModel == MOS6581) 
+    {
+        // values from Jürgen Wothke's WebSid
+        const sound_sample distortOfs = 87200;
+        //const sound_sample distortInvScale = static_cast<sound_sample>( 65536.0f * 2.0f / 117.2f );
+        const float distortScaleF = 99.7578f;
+        const sound_sample distortInvScale = static_cast<sound_sample>( 65536.0f * 2.0f / distortScaleF );
+        const sound_sample distortThreshold = 1134;
+
+        const sound_sample distortRescale = (256 * 65536 / 2048); // 0.125
+
+        int i;
+
+        //
+        // compute w0_delta_t for dVbp (band pass update), i.e. from Vhp
+        //
+        sound_sample Vhp_distorted = ( ( (Vhp<<3) + distortOfs ) * distortInvScale ) >> 16;  // 1091..2047 + overflow
+
+        Vhp_distorted = ( ( Vhp_distorted + fc ) >> 1 ) - distortThreshold;
+
+        if ( Vhp_distorted > 0 ) 
+        {		
+          // optimized
+          int index = Vhp_distorted >> 2;//( Vhp_distorted * distortRescale );
+          i = index < 256 ? index : 255;
+        } else
+          i = 0;
+
+        int fc_plus_offset = i * distortionStrength + fc;
+        if ( fc_plus_offset > 2047 ) fc_plus_offset = 2047;
+
+        const float pi = 3.1415926535897932385f;
+        const int c_w0_13 = static_cast<sound_sample>( 8192.0f * 2.0f * pi * 1.048576f );
+
+        int w0 = ( (int)f0[fc_plus_offset] * c_w0_13 ) >> 13;
+
+        const sound_sample w0_max_dt = static_cast<sound_sample>(2*pi*4000*1.048576);
+
+        int w0_ceil_dt_Vhp = w0 <= w0_max_dt ? w0 : w0_max_dt;
+
+        sound_sample w0_delta_t_Vhp = w0_ceil_dt_Vhp * delta_t_flt >> 6;
+
+        //
+        // compute w0_delta_t for dVlp (low pass update), i.e. from Vbp
+        //
+        sound_sample Vbp_distorted = ( ( (Vbp<<3) + distortOfs ) * distortInvScale ) >> 16;  // 0..2047 + overflow
+
+        Vbp_distorted = ( ( Vbp_distorted + fc ) >> 1 ) - distortThreshold;
+
+        if ( Vbp_distorted > 0 ) 
+        {		
+          // optimized
+          int index = Vbp_distorted >> 2;//( Vbp_distorted * distortRescale );
+          i = index < 256 ? index : 255;
+        } else
+          i = 0;
+
+        fc_plus_offset = i * distortionStrength + fc;
+        if ( fc_plus_offset > 2047 ) fc_plus_offset = 2047;
+
+        w0 = ( (int)f0[fc_plus_offset] * c_w0_13 ) >> 13;
+
+        int w0_ceil_dt_Vbp = w0 <= w0_max_dt ? w0 : w0_max_dt;
+
+        sound_sample w0_delta_t_Vbp = w0_ceil_dt_Vbp * delta_t_flt >> 6;
+
+        sound_sample w0_delta_t = w0_ceil_dt*delta_t_flt >> 6;
+
+        dVbp = (w0_delta_t_Vhp*Vhp >> 14);
+        dVlp = (w0_delta_t_Vbp*Vbp >> 14);
+    } else
+    {
+        sound_sample w0_delta_t = w0_ceil_dt*delta_t_flt >> 6;
+        dVbp = (w0_delta_t*Vhp >> 14);
+        dVlp = (w0_delta_t*Vbp >> 14);
+    }
+#else
+    sound_sample w0_delta_t = w0_ceil_dt*delta_t_flt >> 6;
     sound_sample dVbp = (w0_delta_t*Vhp >> 14);
     sound_sample dVlp = (w0_delta_t*Vbp >> 14);
+#endif
     Vbp -= dVbp;
     Vlp -= dVlp;
     Vhp = (Vbp*_1024_div_Q >> 10) - Vlp - Vi;
@@ -478,9 +585,9 @@ RESID_INLINE
 sound_sample Filter::output()
 {
   // This is handy for testing.
-  if (!enabled) {
+  /*if (!enabled) {
     return (Vnf + mixer_DC)*static_cast<sound_sample>(vol);
-  }
+  }*/
 
   // Mix highpass, bandpass, and lowpass outputs. The sum is not
   // weighted, this can be confirmed by sampling sound output for

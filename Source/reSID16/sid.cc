@@ -23,6 +23,8 @@
 #include "sid.h"
 #include <math.h>
 
+//#pragma GCC optimize( "Ofast", "expensive-optimizations" ) 
+
 // ----------------------------------------------------------------------------
 // Constructor.
 // ----------------------------------------------------------------------------
@@ -169,10 +171,10 @@ void SID16::readRegisters( unsigned char *p )
 reg8 SID16::read(reg8 offset)
 {
   switch (offset) {
-  case 0x19:
-    return potx.readPOT();
-  case 0x1a:
-    return poty.readPOT();
+  //case 0x19:
+    //return potx.readPOT();
+  //case 0x1a:
+    //return poty.readPOT();
   case 0x1b:
     return voice[2].wave.readOSC();
   case 0x1c:
@@ -304,6 +306,7 @@ SID16::State::State()
 // ----------------------------------------------------------------------------
 // Read state.
 // ----------------------------------------------------------------------------
+/*
 SID16::State SID16::read_state()
 {
   State state;
@@ -359,11 +362,12 @@ SID16::State SID16::read_state()
 
   return state;
 }
-
+*/
 
 // ----------------------------------------------------------------------------
 // Write state.
 // ----------------------------------------------------------------------------
+/*
 void SID16::write_state(const State& state)
 {
   int i;
@@ -387,15 +391,15 @@ void SID16::write_state(const State& state)
     voice[i].envelope.hold_zero = state.hold_zero[i];
   }
 }
-
+*/
 
 // ----------------------------------------------------------------------------
 // Enable filter.
 // ----------------------------------------------------------------------------
-void SID16::enable_filter(bool enable)
+/*void SID16::enable_filter(bool enable)
 {
   filter.enable_filter(enable);
-}
+}*/
 
 
 // ----------------------------------------------------------------------------
@@ -832,6 +836,7 @@ void SID16::clock(cycle_count delta_t)
       delta_t -= 1;
   }*/
 
+#if 0
   if ( ( delta_t <= 0 ) ) {
       return;
   }
@@ -842,6 +847,7 @@ void SID16::clock(cycle_count delta_t)
       bus_value = 0;
       bus_value_ttl = 0;
   }
+#endif
 
   // Clock amplitude modulators.
   for ( i = 0; i < 3; i++ ) {
@@ -905,14 +911,19 @@ void SID16::clock(cycle_count delta_t)
   int v1 = voice[ 1 ].output();
   int v2 = voice[ 2 ].output();
 
+#define FUNKY_ADDON
+#ifdef FUNKY_ADDON
   if ( forceOutput[ 0 ] & 2 ) { v0 = voice[ 0 ].output( forceOutput[ 0 ] & ~3 ); }
   if ( forceOutput[ 1 ] & 2 ) { v1 = voice[ 1 ].output( forceOutput[ 1 ] & ~3 ); }
   if ( forceOutput[ 2 ] & 2 ) { v2 = voice[ 2 ].output( forceOutput[ 2 ] & ~3 ); }
 
 #ifdef USE_RGB_LED
-  voiceOut[ 0 ] = v0 + voice[ 0 ].wave_zero * voice[ 0 ].envelope.output() - voice[ 0 ].voice_DC;
-  voiceOut[ 1 ] = v1 + voice[ 1 ].wave_zero * voice[ 1 ].envelope.output() - voice[ 1 ].voice_DC;
-  voiceOut[ 2 ] = v2 + voice[ 2 ].wave_zero * voice[ 2 ].envelope.output() - voice[ 2 ].voice_DC;
+  // voiceOut[ 0 ] = v0 + voice[ 0 ].wave_zero * voice[ 0 ].envelope.output() - voice[ 0 ].voice_DC;
+  // voiceOut[ 1 ] = v1 + voice[ 1 ].wave_zero * voice[ 1 ].envelope.output() - voice[ 1 ].voice_DC;
+  // voiceOut[ 2 ] = v2 + voice[ 2 ].wave_zero * voice[ 2 ].envelope.output() - voice[ 2 ].voice_DC;
+  voiceOut[ 0 ] = v0 - voice[ 0 ].voice_DC;
+  voiceOut[ 1 ] = v1 - voice[ 0 ].voice_DC;
+  voiceOut[ 2 ] = v2 - voice[ 0 ].voice_DC;
 #endif
 
   v0p = 0;
@@ -938,12 +949,12 @@ void SID16::clock(cycle_count delta_t)
   #endif
   }
 
+#endif
 
   // Clock filter.
   filter.clock( delta_t, v0, v1, v2, ext_in );
   // Clock external filter.
-  extfilt.clock( delta_t, filter.output() );
-
+  extfilt.clock( delta_t, filter.output() );  
 }
 
 

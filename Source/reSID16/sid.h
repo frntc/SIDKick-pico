@@ -36,7 +36,7 @@ public:
   ~SID16();
 
   void set_chip_model(chip_model model);
-  void enable_filter(bool enable);
+  //void enable_filter(bool enable);
   void enable_external_filter(bool enable);
   bool set_sampling_parameters(float clock_freq, sampling_method method,
 			       float sample_freq, float pass_freq = -1,
@@ -55,6 +55,9 @@ public:
   reg8 read(reg8 offset);
   void write(reg8 offset, reg8 value);
   void readRegisters( unsigned char *p );
+
+  Filter filter;
+  ExternalFilter extfilt;
 
   // Read/write state.
   class State
@@ -78,8 +81,8 @@ public:
     bool hold_zero[3];
   };
     
-  State read_state();
-  void write_state(const State& state);
+  //State read_state();
+  //void write_state(const State& state);
 
   // 16-bit input (EXT IN).
   void input(int sample);
@@ -107,10 +110,8 @@ protected:
 				       int n, int interleave);
 
   Voice voice[3];
-  Filter filter;
-  ExternalFilter extfilt;
-  Potentiometer potx;
-  Potentiometer poty;
+  //Potentiometer potx;
+  //Potentiometer poty;
 
   reg8 bus_value;
   cycle_count bus_value_ttl;

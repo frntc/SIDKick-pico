@@ -20,6 +20,7 @@
 #define __EXTFILT_CC__
 #include "extfilt.h"
 
+//#pragma GCC optimize( "Ofast", "expensive-optimizations" ) 
 
 // ----------------------------------------------------------------------------
 // Constructor.
@@ -27,11 +28,11 @@
 ExternalFilter::ExternalFilter()
 {
   reset();
-  enable_filter(true);
+  //enable_filter(true);
   set_chip_model(MOS6581);
 
-  // Low-pass:  R = 10kOhm, C = 1000pF; w0l = 1/RC = 1/(1e4*1e-9) = 100000
-  // High-pass: R =  1kOhm, C =   10uF; w0h = 1/RC = 1/(1e3*1e-5) =    100
+  // Low-pass:  R = 10kOhm, C = 1000pF; w0l = 1/RC = 1/(1e4*1e-9) = 100000 => 15915Hz
+  // High-pass: R =  1kOhm, C =   10uF; w0h = 1/RC = 1/(1e3*1e-5) =    100 => 15.915Hz
   // Multiply with 1.048576 to facilitate division by 1 000 000 by right-
   // shifting 20 times (2 ^ 20 = 1048576).
 
@@ -39,6 +40,13 @@ ExternalFilter::ExternalFilter()
   w0hp = 105;
 }
 
+void ExternalFilter::setCutoffFrequencies( int highpassHz, int lowpassHz )
+{
+  const int c = 53972; // 6,5883973166611420696284094965314 * 8192
+  w0hp = ( highpassHz * c ) >> 13;
+  w0lp = ( lowpassHz * c ) >> 13;
+  reset();
+}
 
 // ----------------------------------------------------------------------------
 // Enable filter.
@@ -58,7 +66,7 @@ void ExternalFilter::set_chip_model(chip_model model)
     // Maximum mixer DC output level; to be removed if the external
     // filter is turned off: ((wave DC + voice DC)*voices + mixer DC)*volume
     // See voice.cc and filter.cc for an explanation of the values.
-    mixer_DC = ((((0x800 - 0x380) + 0x800)*0xff*3 - 0xfff*0xff/18) >> 7)*0x0f;
+    mixer_DC = ((((0x800 - 0x380) + 0x800)*0xff*3 - 0xfff*0xff/18) >> 7);
   }
   else {
     // No DC offsets in the MOS8580.

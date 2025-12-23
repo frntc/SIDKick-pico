@@ -27,6 +27,8 @@
 
 #define likely(x) (x)
 #define unlikely(x) (x)
+//#define likely(x)      __builtin_expect(!!(x), 1) 
+//#define unlikely(x)    __builtin_expect(!!(x), 0) 
 
 // ----------------------------------------------------------------------------
 // A 15 bit counter is used to implement the envelope rates, in effect

@@ -41,6 +41,8 @@ public:
   ExternalFilter();
 
   void enable_filter(bool enable);
+  void setCutoffFrequencies( int highpassHz, int lowpassHz );
+  
   void set_chip_model(chip_model model);
 
   RESID_INLINE void clock(sound_sample Vi);
