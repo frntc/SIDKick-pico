@@ -8,7 +8,7 @@
   reSIDWrapper.cc
 
   SIDKick pico - SID-replacement with dual-SID/SID+fm emulation using a RPi pico, reSID 0.16 and fmopl 
-  Copyright (c) 2023/2024 Carsten Dachsbacher <frenetic@dachsbacher.de>
+  Copyright (c) 2023-2025 Carsten Dachsbacher <frenetic@dachsbacher.de>
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -26,35 +26,26 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <ctype.h>
-#include "pico/stdlib.h"
+#include <pico/stdlib.h>
 #include <pico/multicore.h>
+#include "hardware/clocks.h"
 
 #include "reSID16/sid.h"
 
 #include "reSID_LUT.h"
+#include "filterLUTs.h"
 
-// 6581, 8580, 8580+digiboost, none
-#define CFG_SID1_TYPE           0
-// 0 .. 15
-#define CFG_SID1_DIGIBOOST      1
-// 0 .. 14
-#define CFG_SID1_VOLUME         3
+#include "reSIDWrapper.h"
 
-#define CFG_SID2_TYPE           8
-#define CFG_SID2_DIGIBOOST      9
-#define CFG_SID2_ADDRESS        10
-#define CFG_SID2_VOLUME         11
+#define SET_CLOCK_125MHZ set_sys_clock_pll( 1500000000, 6, 2 );
+#define SET_CLOCK_FAST   set_sys_clock_pll( 1500000000, 5, 1 );
 
-// 0 .. 14
-#define CFG_SID_PANNING         12
-#define CFG_SID_BALANCE         58
-
-#define CFG_REGISTER_READ       2
-#define CFG_TRIGGER             57
-#define CFG_CLOCKSPEED          59
-#define CFG_POT_FILTER          60
-#define CFG_DIGIDETECT          61
+#define DELAY_Nx3p2_CYCLES( c )								\
+    asm volatile( "mov  r0, %[_c]\n\t"							\
+				  "1: sub  r0, r0, #1\n\t"					\
+				  "bne   1b"  : : [_c] "r" (c) : "r0", "cc", "memory" );
 
 static int32_t cfgVolSID1_Left, cfgVolSID1_Right;
 static int32_t cfgVolSID2_Left, cfgVolSID2_Right;
@@ -71,6 +62,8 @@ uint8_t  POT_OUTLIER_REJECTION = 0;
 uint32_t SID2_ADDR_PREV = 255;
 uint8_t  config[ 64 ];
 
+uint8_t  configCurrent[ 64 ];
+
 #ifdef USE_RGB_LED
 int32_t  voiceOutAcc[ 3 ], nSamplesAcc;
 #endif
@@ -80,7 +73,7 @@ SID16 *sid16b;
 
 extern "C"
 {
-    static const __not_in_flash( "mydata" ) unsigned char colorMap[ 9 ][ 3 ] =
+	static const __not_in_flash( "mydata" ) unsigned char colorMap[ 9 ][ 3 ] =
 	{
 	    {  64, 153, 255 },
 	    {  35, 195, 228 },
@@ -93,27 +86,12 @@ extern "C"
 	    { 254, 144,  41 },
 	};
 
-    uint16_t crc16( const uint8_t *p, uint8_t l ) 
-    {
-        uint8_t x;
-        uint16_t crc = 0xFFFF;
-
-        while ( l-- ) 
-        {
-            x = crc >> 8 ^ *p++;
-            x ^= x >> 4;
-            crc = ( crc << 8 ) ^ ( (uint16_t)( x << 12 ) ) ^ ( (uint16_t)( x << 5 ) ) ^ ( (uint16_t)x );
-        }
-        return crc;
-    }
-
     void setDefaultConfiguration()
     {
-        for ( uint8_t i = 0; i < 62; i++ )
-            config[ i ] = 0;
+        memset( config, 0, 64 );
 
         config[ CFG_SID1_TYPE ] = 1;
-        config[ CFG_SID2_TYPE ] = 3;
+        config[ CFG_SID2_TYPE ] = 1*0+3;
         config[ CFG_REGISTER_READ ] = 1;
         config[ CFG_SID2_ADDRESS ] = 0 + 4*0;
         config[ CFG_SID1_DIGIBOOST ] = 12;
@@ -124,21 +102,42 @@ extern "C"
         config[ CFG_SID_BALANCE ] = 7;
         config[ CFG_CLOCKSPEED ] = 0;
         config[ CFG_POT_FILTER ] = 16;      // obvious outlier-rejection
+
         config[ CFG_DIGIDETECT ] = 0;
         config[ CFG_TRIGGER ] = 0;
+        config[ CFG_PADDLEOFFSET ] = 0;
 
-        uint16_t c = crc16( config, 62 );
-        config[ 62 ] = ( c & 255 );
-        config[ 63 ] = ( c >> 8 );
+        config[ CFG_FILTER_8580_LOW ] = 0;
+        config[ CFG_FILTER_8580_CENTER ] = 52;
+        config[ CFG_FILTER_6581_PRESET ] = 0;
+        config[ CFG_FILTER_6581_LOW ] = 220/4;
+        config[ CFG_FILTER_6581_HIGH ] = 170;
+        config[ CFG_FILTER_6581_DISTORTION ] = 0;
+        config[ CFG_FILTER_EXT_ENABLE ] = 1;
+        config[ CFG_FILTER_EXT_HIGHPASS ] = 10;
+        config[ CFG_FILTER_EXT_LOWPASS ] = 160;
+
+        config[ CFG_CUSTOM_USE_TIMINGS ] = 0;
+        config[ CFG_CUSTOM_TIMING_READBUS ] = 0;
+        config[ CFG_CUSTOM_TIMING_PHI2 ] = 0;
+
+        return;
     }
 
     void updateConfiguration()
     {
+
+        extern uint8_t outRegisters[ 34 * 2 ];
+        
+        outRegisters[ REG_AUTO_DETECT_STEP ] = outRegisters[ REG_AUTO_DETECT_STEP + 34 ] = 0;
+		outRegisters[ REG_MODEL_DETECT_VALUE ] = ( config[ /*CFG_SID1_TYPE*/0 ] == 0 ) ? SID_MODEL_DETECT_VALUE_6581 : SID_MODEL_DETECT_VALUE_8580;
+		outRegisters[ REG_MODEL_DETECT_VALUE + 34 ] = ( config[ /*CFG_SID2_TYPE*/8 ] == 0 ) ? SID_MODEL_DETECT_VALUE_6581 : SID_MODEL_DETECT_VALUE_8580;
+
+        const uint32_t c64clock[ 3 ] = { 985248, 1022727, 1023440 };
+
         if ( config[ CFG_SID1_TYPE ] == 0 )
             sid16->set_chip_model( MOS6581 ); else
             sid16->set_chip_model( MOS8580 );
-
-        const uint32_t c64clock[ 3 ] = { 985248, 1022727, 1023440 };
 
         if ( config[ CFG_SID1_TYPE ] == 2 )
             sid16->input( - ( 1 << config[ CFG_SID1_DIGIBOOST ] ) ); else
@@ -151,7 +150,6 @@ extern "C"
         if ( config[ CFG_SID2_TYPE ] == 2 )
             sid16b->input( - ( 1 << config[ CFG_SID2_DIGIBOOST ] ) ); else
             sid16b->input( 0 );
-
 
         C64_CLOCK = c64clock[ config[ CFG_CLOCKSPEED ] % 3 ];
         sid16->set_sampling_parameters( C64_CLOCK, SAMPLE_INTERPOLATE, 44100 );
@@ -179,6 +177,7 @@ extern "C"
         POT_FILTER_global = config[ CFG_POT_FILTER ];
 
         POT_OUTLIER_REJECTION = ( POT_FILTER_global >> 4 ) & 3;
+        POT_OUTLIER_REJECTION = 0;
         POT_SET_PULLDOWN = POT_FILTER_global & 64;
 
         POT_FILTER_global &= 15;
@@ -194,7 +193,11 @@ extern "C"
 
         if ( config[ CFG_SID2_TYPE ] == 3 )
         {
+            // only one SID
+            cfgVolSID1_Left <<= 1;
+            cfgVolSID1_Right <<= 1;
             cfgVolSID2_Left = cfgVolSID2_Right = 0;
+            SID2_FLAG = ( 1 << 30 );    // dummy register writes to disables sid #2
         } else
         {
             cfgVolSID2_Left = (int)( config[ CFG_SID2_VOLUME ] ) * (int)( panning );
@@ -215,6 +218,7 @@ extern "C"
                 balanceRight -= (int)( 7 - config[ CFG_SID_BALANCE ] ) * 32;
             if ( config[ CFG_SID_BALANCE ] > 7 )
                 balanceLeft -= (int)( config[ CFG_SID_BALANCE ] - 7 ) * 32;
+
             actVolSID1_Left = actVolSID1_Left * balanceLeft * globalVolume / maxVolFactor;
             actVolSID1_Right = actVolSID1_Right * balanceRight * globalVolume / maxVolFactor;
             actVolSID2_Left = actVolSID2_Left * balanceLeft * globalVolume / maxVolFactor;
@@ -222,6 +226,30 @@ extern "C"
         }
 
         SID_DIGI_DETECT = config[ CFG_DIGIDETECT ] ? 1 : 0;
+
+        sid16->extfilt.setCutoffFrequencies( config[ CFG_FILTER_EXT_HIGHPASS ], ( config[ CFG_FILTER_EXT_LOWPASS ] + 10 ) * 100 );
+        sid16b->extfilt.setCutoffFrequencies( config[ CFG_FILTER_EXT_HIGHPASS ], ( config[ CFG_FILTER_EXT_LOWPASS ] + 10 ) * 100 );
+
+        sid16->enable_external_filter( config[ CFG_FILTER_EXT_ENABLE ] & 1 );
+        sid16b->enable_external_filter( config[ CFG_FILTER_EXT_ENABLE ] & 1 );
+
+        sid16->filter.set8580FilterCoeffs( config[ CFG_FILTER_8580_LOW ] * 4, ( config[ CFG_FILTER_8580_CENTER ] + 10 ) * 100 );
+        sid16b->filter.set8580FilterCoeffs( config[ CFG_FILTER_8580_LOW ] * 4, ( config[ CFG_FILTER_8580_CENTER ] + 10 ) * 100 );
+
+        SET_CLOCK_125MHZ
+        DELAY_Nx3p2_CYCLES( 85000 );
+
+        int ofs = config[ CFG_FILTER_6581_PRESET ];
+        ofs *= 2048;
+        sid16->filter.set6581FilterCoeffs( (signed short*)&filterLUT6581[ ofs ], ( config[ CFG_FILTER_6581_LOW ] ) * 4, ( config[ CFG_FILTER_6581_HIGH ] + 10 ) * 100, config[ CFG_FILTER_6581_DISTORTION ] );
+        sid16b->filter.set6581FilterCoeffs( (signed short*)&filterLUT6581[ ofs ], ( config[ CFG_FILTER_6581_LOW ] ) * 4, ( config[ CFG_FILTER_6581_HIGH ] + 10 ) * 100, config[ CFG_FILTER_6581_DISTORTION ] );
+
+        SET_CLOCK_FAST
+
+        extern uint8_t DIAGROM_THRESHOLD;
+        DIAGROM_THRESHOLD = config[ CFG_PADDLEOFFSET ];
+
+        memcpy( configCurrent, config, 64 );
 
         extern void resetEverything();
         resetEverything();
@@ -241,6 +269,10 @@ extern "C"
         sid16b->set_chip_model( MOS8580 );
         sid16b->reset();
         sid16b->set_sampling_parameters( C64_CLOCK, SAMPLE_INTERPOLATE, 44100 );
+
+        // enforce full update of the configuration
+        for ( int i = 0; i < 64; i ++)
+            configCurrent[ i ] = config[ i ] ^ 255;
 
         updateConfiguration();
 
@@ -309,8 +341,8 @@ extern "C"
     {
         int32_t sid1 = sid16->output();
 
-        int32_t L = sid1 * actVolSID1_Left + (fm * actVolSID2_Left * 2);
-        int32_t R = sid1 * actVolSID1_Right + (fm * actVolSID2_Right * 2);
+        int32_t L = sid1 * actVolSID1_Left + (fm * actVolSID2_Left*2);
+        int32_t R = sid1 * actVolSID1_Right + (fm * actVolSID2_Right*2);
 
         L >>= 16; R >>= 16;
         if ( L > 32767 ) L = 32767;
@@ -319,6 +351,7 @@ extern "C"
         if ( R < -32767 ) R = -32767;
         *left = L;
         *right = R;
+
 
     #ifdef USE_RGB_LED
         // SID #1 voices map to red, green, blue
@@ -346,16 +379,22 @@ extern "C"
                 voiceOutAcc[ 2 ] += ( colorMap[ 1 ][ 2 ] * ( fmDigis[ 0 ] - 64 ) << 11 ) >> 7;
             }
         } else
-            for ( int i = 0; i < 9; i++ )
-            {
-                extern int32_t outputCh[ 9 ];
-                voiceOutAcc[ 0 ] += ( colorMap[ i ][ 0 ] * outputCh[ i ] ) >> 1;
-                voiceOutAcc[ 1 ] += ( colorMap[ i ][ 1 ] * outputCh[ i ] ) >> 1;
-                voiceOutAcc[ 2 ] += ( colorMap[ i ][ 2 ] * outputCh[ i ] ) >> 1;
-            }
+        for ( int i = 0; i < 9; i++ )
+        {
+            extern int32_t outputCh[ 9 ];
+            voiceOutAcc[ 0 ] += ( colorMap[ i ][ 0 ] * outputCh[ i ] ) >> 1;
+            voiceOutAcc[ 1 ] += ( colorMap[ i ][ 1 ] * outputCh[ i ] ) >> 1;
+            voiceOutAcc[ 2 ] += ( colorMap[ i ][ 2 ] * outputCh[ i ] ) >> 1;
+        }
         nSamplesAcc ++;
     #endif
     }
+
+    int32_t outputReSIDSingle()
+    {
+        return sid16->output();
+    }
+
 
     void resetReSID()
     {

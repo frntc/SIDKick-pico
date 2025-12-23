@@ -8,7 +8,7 @@
   launch.h
 
   SIDKick pico - SID-replacement with dual-SID/SID+fm emulation using a RPi pico, reSID 0.16 and fmopl 
-  Copyright (c) 2023/2024 Carsten Dachsbacher <frenetic@dachsbacher.de>
+  Copyright (c) 2023-2025 Carsten Dachsbacher <frenetic@dachsbacher.de>
 
   This file contains native C64-code which does not depend on anything covered by GPL or similar
   licenses. It is copied by the SIDKick firmware into C64-memory. Due to recent hassle with copycats
@@ -31,3 +31,4 @@ const uint8_t launchCode[ 152 ] = {
     0x8D, 0x77, 0x02, 0xA9, 0xD5, 0x8D, 0x78, 0x02, 0xA9, 0x3A, 0x8D, 0x79, 0x02, 0xA9, 0x0D, 0x8D,
     0x7A, 0x02, 0xA9, 0x04, 0x85, 0xC6, 0x58, 0x60
 };
+

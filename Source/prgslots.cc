@@ -30,6 +30,7 @@
 uint8_t prgDirectory[ 16 * 24 + 1 ];
 
 const volatile uint8_t __in_flash( "PRGDirectory" ) prgDirectory_Flash[ 16 * 24 + 1 ] __attribute__((aligned(FLASH_SECTOR_SIZE))) =
+//const volatile uint8_t __in_flash( "PRGDirectory" ) prgDirectory_Flash[ FLASH_SECTOR_SIZE ] __attribute__((aligned(FLASH_SECTOR_SIZE))) =
 { 
   // 18 byte name (string null-terminated), 4 byte ofs, 2 byte length
   'E', 'M', 'P', 'T', 'Y', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -51,5 +52,6 @@ const volatile uint8_t __in_flash( "PRGDirectory" ) prgDirectory_Flash[ 16 * 24 
   0xff
 };
 
-const volatile uint8_t __in_flash( "PRGData" ) prgRepository[ 1024 * 1024 ] __attribute__((aligned(FLASH_SECTOR_SIZE))) =
+// TODO: 1024 * 1024
+const volatile uint8_t __in_flash( "PRGData" ) prgRepository[ 1024 * 1024 ] __attribute__((aligned(FLASH_SECTOR_SIZE)))  =
   { 'S', 'I', 'D', 'K', 'I', 'C', 'K', ' ', 'R', 'E', 'P', 'O', 0, 0, 0, 0, 0, 0, 0, 0 };

@@ -1,14 +1,14 @@
 /*
-       ______/  _____/  _____/     /   _/    /             /
-     _/           /     /     /   /  _/     /   ______/   /  _/             ____/     /   ______/   ____/
-      ___/       /     /     /   ___/      /   /         __/                    _/   /   /         /     /
-         _/    _/    _/    _/   /  _/     /  _/         /  _/             _____/    /  _/        _/    _/
+	   ______/  _____/  _____/     /   _/    /             /
+	 _/           /     /     /   /  _/     /   ______/   /  _/             ____/     /   ______/   ____/
+	  ___/       /     /     /   ___/      /   /         __/                    _/   /   /         /     /
+		 _/    _/    _/    _/   /  _/     /  _/         /  _/             _____/    /  _/        _/    _/
   ______/   _____/  ______/   _/    _/  _/    _____/  _/    _/          _/        _/    _____/    ____/
 
   SKpico.c
 
   SIDKick pico - SID-replacement with dual-SID/SID+fm emulation using a RPi pico, reSID 0.16 and fmopl 
-  Copyright (c) 2023/2024 Carsten Dachsbacher <frenetic@dachsbacher.de>
+  Copyright (c) 2023-2025 Carsten Dachsbacher <frenetic@dachsbacher.de>
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -26,26 +26,16 @@
 
 #pragma GCC optimize( "Ofast", "omit-frame-pointer", "modulo-sched", "modulo-sched-allow-regmoves", "gcse-sm", "gcse-las", "inline-small-functions", "delete-null-pointer-checks", "expensive-optimizations" ) 
 
-// enable output via PWM
-//#define OUTPUT_VIA_PWM
-
-// enable output via PCM5102-DAC
-//#define USE_DAC
-
-// will be available later
-//#define USE_SPDIF
-
-// enable flashing LED
-//#define FLASH_LED
-
 // enable heuristics for detecting digi-playing techniques
 #define SUPPORT_DIGI_DETECT
 
 // enable support of special 8-bit DAC mode
 #define SID_DAC_MODE_SUPPORT
 
-// enable RGB LED on GPIO 23 (do not use this with original Pico)
-//#define USE_RGB_LED
+// RESET signal on dedicated GPIO
+#define RESET_ON_GPIO
+#define MEANINGFUL_RESET
+#define DIAGROM_HACK
 
 #include <malloc.h>
 #include <ctype.h>
@@ -57,7 +47,6 @@
 #include "hardware/flash.h"
 #include "hardware/structs/bus_ctrl.h" 
 #include "pico/audio_i2s.h"
-#include "pico/audio_spdif.h"
 #include "launch.h"
 #include "prgconfig.h"
 #include "hardware/pio.h"
@@ -66,6 +55,7 @@
 #include "hardware/resets.h"
 #include "hardware/watchdog.h"
 
+#include "reSIDWrapper.h"
 #include "prgslots.h"
 
 uint8_t  prgLaunch = 0, 
@@ -76,14 +66,16 @@ uint16_t prgCode_sizeM;
 #include "fmopl.h"
 extern uint8_t FM_ENABLE;
 
+
 #ifdef USE_RGB_LED
 #undef FLASH_LED
 #include "ws2812.pio.h"
 static int32_t r_ = 0, g_ = 0, b_ = 0;
 #endif
 
-const volatile uint8_t __in_flash() busTimings[ 8 ] = { 11, 15, 1, 2, 3, 4, 5, 6 };
-uint8_t DELAY_READ_BUS, DELAY_PHI2;
+const volatile uint8_t __in_flash() busTimings[ FLASH_SECTOR_SIZE ]  __attribute__((aligned(FLASH_SECTOR_SIZE))) = { 3, 12, 1, 2, 3, 4, 5, 6 };
+
+uint8_t DELAY_READ_BUS, DELAY_PHI2, DIAGROM_THRESHOLD;
 
 // support straight DAC output
 #ifdef SID_DAC_MODE_SUPPORT
@@ -98,15 +90,15 @@ uint8_t sidDACMode = SID_DAC_OFF;
 #define VERSION_STR_SIZE  36
 static const __not_in_flash( "mydata" ) unsigned char VERSION_STR[ VERSION_STR_SIZE ] = {
 #if defined( USE_SPDIF )
-  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '2', '1', '/', 0x53, 0x50, 0x44, 0x49, 0x46, 0, 0, 0, 0,   // version string to show
+  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '2', '2', '/', 0x53, 0x50, 0x44, 0x49, 0x46, 0, 0, 0, 0,   // version string to show
 #endif
 #if defined( USE_DAC ) 
-  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '2', '1', '/', 0x44, 0x41, 0x43, '6', '4', 0, 0, 0, 0,   // version string to show
+  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '2', '2', '/', 0x44, 0x41, 0x43, '6', '4', 0, 0, 0, 0,   // version string to show
 #elif defined( OUTPUT_VIA_PWM )
-  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '2', '1', '/', 0x50, 0x57, 0x4d, '6', '4', 0, 0, 0, 0,   // version string to show
+  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '2', '2', '/', 0x50, 0x57, 0x4d, '6', '4', 0, 0, 0, 0,   // version string to show
 #endif
   0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, 0x00, 0x00,   // signature + extension version 0
-  0, 21,                                            // firmware version with stepping = 0.12
+  0, 22,                                            // firmware version with stepping = 0.12
 #ifdef SID_DAC_MODE_SUPPORT                         // support DAC modes? which?
   SID_DAC_MONO8 | SID_DAC_STEREO8,
 #else
@@ -118,13 +110,11 @@ extern void initReSID();
 extern void resetReSID();
 extern void emulateCyclesReSID( int cyclesToEmulate );
 extern void emulateCyclesReSIDSingle( int cyclesToEmulate );
-extern uint16_t crc16( const uint8_t *p, uint8_t l );
 extern void updateConfiguration();
 extern void writeReSID( uint8_t A, uint8_t D );
 extern void writeReSID2( uint8_t A, uint8_t D );
 extern void outputReSID( int16_t *left, int16_t *right );
 extern void readRegs( uint8_t *p1, uint8_t *p2 );
-
 
 #define D0			0
 #define A0			16
@@ -147,11 +137,29 @@ extern void readRegs( uint8_t *p1, uint8_t *p2 );
 #define bPOTX		( 1 << POTX )
 #define bPOTY		( 1 << POTY )
 
-#define AUDIO_I2S_CLOCK_PIN_BASE 26
-#define AUDIO_I2S_DATA_PIN	28
+#define AUDIO_I2S_CLOCK_PIN_BASE 	26
+#define AUDIO_I2S_DATA_PIN			28
 
 #define DAC_BITS	( ( 3 << AUDIO_I2S_CLOCK_PIN_BASE ) | ( 1 << AUDIO_I2S_DATA_PIN ) )
 #define bPWN_POT	( ( 1 << AUDIO_PIN ) | bPOTX | bPOTY | DAC_BITS )
+
+// enable output via PWM
+//#define OUTPUT_VIA_PWM
+
+// enable output via PCM5102-DAC
+//#define USE_DAC
+
+// will be available later
+//#define USE_SPDIF
+
+// enable flashing LED
+//#define FLASH_LED
+
+#define bPOTX		( 1 << POTX )
+#define bPOTY		( 1 << POTY )
+#define DAC_BITS	( ( 3 << AUDIO_I2S_CLOCK_PIN_BASE ) | ( 1 << AUDIO_I2S_DATA_PIN ) )
+#define bPWN_POT	( ( 1 << AUDIO_PIN ) | bPOTX | bPOTY | DAC_BITS )
+#define bOE			( 1 << OE_DATA )
 
 #define VIC_HALF_CYCLE( g )	( !( (g) & bPHI ) )
 #define CPU_HALF_CYCLE( g )	(  ( (g) & bPHI ) )
@@ -185,19 +193,22 @@ extern uint32_t C64_CLOCK;
 #define SET_CLOCK_FAST   set_sys_clock_pll( 1500000000, 5, 1 );
 
 #define DELAY_Nx3p2_CYCLES( c )								\
-    asm volatile( "mov  r0, %[_c]\n\t"						\
+    asm volatile( "mov  r0, %[_c]\n\t"							\
 				  "1: sub  r0, r0, #1\n\t"					\
 				  "bne   1b"  : : [_c] "r" (c) : "r0", "cc", "memory" );
+
 
 void initGPIOs()
 {
 	for ( int i = 0; i < 26; i++ )
+	{
 		gpio_init( i );
+		//gpio_set_drive_strength( i, GPIO_DRIVE_STRENGTH_12MA );
+	}
 	gpio_init( 28 );
 	gpio_set_pulls( A8, true, false );
 	gpio_set_pulls( RESET, true, false );
-
-	gpio_set_dir_all_bits( bOE | bPWN_POT | ( 1 << LED_BUILTIN ) | ( 1 << 23 ) );
+	gpio_set_dir_all_bits( bOE | bPWN_POT | ( 1 << LED_BUILTIN ) | ( 1 << 23));
 }
 
 extern uint8_t config[ 64 ];
@@ -348,8 +359,8 @@ void updateEmulationParameters()
 	paddleFilterMode = POT_FILTER_global;
 	if ( paddleFilterMode == 3 )
 	{
-		potXExtrema[ 0 ] = potYExtrema[ 0 ] = 128 - 30;
-		potXExtrema[ 1 ] = potYExtrema[ 1 ] = 128 + 30;
+		potXExtrema[ 0 ] = potYExtrema[ 0 ] = 128 - 64;
+		potXExtrema[ 1 ] = potYExtrema[ 1 ] = 128 + 64;
 	} else
 	{
 		potXExtrema[ 0 ] = potYExtrema[ 0 ] = 0;
@@ -359,12 +370,20 @@ void updateEmulationParameters()
 	SID2_IOx = SID2_IOx_global;
 }
 
+void readConfiguration();
+void writeConfiguration();
+
 #define RGB24( r, g, b ) ( ( (uint32_t)(r)<<8 ) | ( (uint32_t)(g)<<16 ) | (uint32_t)(b) )
+static uint16_t smpCnt = 0;
 
 uint8_t smoothPotValues = 0;
 uint8_t newPotXCandidate = 128, newPotYCandidate = 128;
 uint8_t newPotXCandidate2S = 128, newPotYCandidate2S = 128;
 uint8_t skipSmoothing = 0;
+#ifdef DIAGROM_HACK
+uint32_t presumablyFixedResistor = 0;
+uint8_t  diagROM_PaddleOffset = 0;
+#endif
 
 inline uint8_t median( uint8_t *x )
 {
@@ -382,6 +401,12 @@ inline uint8_t median( uint8_t *x )
 
 	return sum - minV - maxV;
 }
+
+	#define RAMP_BITS 14
+	#define RAMP_LENGTH ( 1 << RAMP_BITS )
+
+	int16_t ramp = 0, rampDelta = 0;
+	int16_t lerp = RAMP_LENGTH, lerpTarget = 0, lerpDelta = -4;
 
 void runEmulation()
 {
@@ -402,21 +427,25 @@ void runEmulation()
 
 	// setup PWM and PWM mode for audio 
 	#ifdef OUTPUT_VIA_PWM
-	gpio_set_dir( AUDIO_PIN, GPIO_OUT );
-	gpio_set_function( AUDIO_PIN, GPIO_FUNC_PWM );
+	{
+		gpio_set_dir( AUDIO_PIN, GPIO_OUT );
+		gpio_set_function( AUDIO_PIN, GPIO_FUNC_PWM );
 
-	int audio_pin_slice = pwm_gpio_to_slice_num( AUDIO_PIN );
-	pwm_config config = pwm_get_default_config();
-	pwm_config_set_clkdiv( &config, 1 );
-	pwm_config_set_wrap( &config, AUDIO_VALS );
-	pwm_init( audio_pin_slice, &config, true );
-	gpio_set_drive_strength( AUDIO_PIN, GPIO_DRIVE_STRENGTH_12MA );
-	pwm_set_gpio_level( AUDIO_PIN, 0 );
+		int audio_pin_slice = pwm_gpio_to_slice_num( AUDIO_PIN );
+		pwm_config config = pwm_get_default_config();
+		pwm_config_set_clkdiv( &config, 1 );
+		pwm_config_set_wrap( &config, AUDIO_VALS );
+		pwm_init( audio_pin_slice, &config, true );
+		gpio_set_drive_strength( AUDIO_PIN, GPIO_DRIVE_STRENGTH_12MA );
+		pwm_set_gpio_level( AUDIO_PIN, 0 );
 
-	static const uint32_t PIN_DCDC_PSM_CTRL = 23;
-	gpio_init( PIN_DCDC_PSM_CTRL );
-	gpio_set_dir( PIN_DCDC_PSM_CTRL, GPIO_OUT );
-	gpio_put( PIN_DCDC_PSM_CTRL, 1 );
+		#ifndef SKPICO_2350CR
+		static const uint32_t PIN_DCDC_PSM_CTRL = 23;
+		gpio_init( PIN_DCDC_PSM_CTRL );
+		gpio_set_dir( PIN_DCDC_PSM_CTRL, GPIO_OUT );
+		gpio_put( PIN_DCDC_PSM_CTRL, 1 );
+		#endif
+	}
 	#endif
 
 	#ifdef USE_RGB_LED
@@ -463,9 +492,6 @@ void runEmulation()
 
 	extern uint8_t SID_DIGI_DETECT;	// from config: heuristics activated?
 	uint8_t  sampleTechnique = 0;
-	uint16_t silence = 0;
-	uint16_t ramp = 0;
-	int32_t  lastS = 0;
 
 	uint64_t lastD418Cycle = 0;
 	#ifdef USE_RGB_LED
@@ -511,8 +537,8 @@ void runEmulation()
 				if ( paddleFilterMode == 3 )
 				{
 					// only for mouse, not paddles
-					potXExtrema[ 0 ] = potYExtrema[ 0 ] = 128 - 58;
-					potXExtrema[ 1 ] = potYExtrema[ 1 ] = 128 + 58;
+					potXExtrema[ 0 ] = potYExtrema[ 0 ] = 128 - 64;
+					potXExtrema[ 1 ] = potYExtrema[ 1 ] = 128 + 64;
 					paddleXRange = (int)( potXExtrema[ 1 ] - potXExtrema[ 0 ] ) << 8;
 					paddleYRange = (int)( potYExtrema[ 1 ] - potYExtrema[ 0 ] ) << 8; 
 
@@ -535,7 +561,6 @@ void runEmulation()
 					oldY += paddleYRange; else
 				if ( ( oldY - newY ) > paddleYRange / 2 )
 					newY += paddleYRange;
-
 				
 				newX = ( oldX * ( 256 - EMA ) + newX * EMA ) >> 8;
 				if ( newX >= paddleXRange ) newX -= paddleXRange;
@@ -546,18 +571,47 @@ void runEmulation()
 			if ( paddleFilterMode > 1 && !skipSmoothing )
 			{
 				paddleXSmooth = newX + ( (int)potXExtrema[ 0 ] << 8 );
-				outRegisters[ 25 ] = paddleXSmooth >> 8;
 				paddleYSmooth = newY + ( (int)potYExtrema[ 0 ] << 8 );
+				outRegisters[ 25 ] = paddleXSmooth >> 8;
 				outRegisters[ 26 ] = paddleYSmooth >> 8;
 			}
 			bla:
 			smoothPotValues = 0;
 		}
 
+	#ifdef RESET_ON_GPIO
 		if ( doReset )
 		{
+			if ( doReset == 2 )
+			{
+				extern void setDefaultConfiguration();
+				setDefaultConfiguration();
+
+				config[ CFG_CUSTOM_USE_TIMINGS ] = 4;
+				config[ CFG_CUSTOM_TIMING_READBUS ] = 3;
+				config[ CFG_CUSTOM_TIMING_PHI2 ] = 12;
+
+				writeConfiguration();
+				watchdog_reboot( 0, 0, 0 );
+			} else
+			if ( doReset == 3 )
+			{
+				const uint8_t nextTimingConfiguration[ 4 * 3 ] = { 1, 7, 11, 2, 1, 12, 3, 11, 15, 1, 7, 11 };
+				uint32_t o = ( config[ CFG_CUSTOM_USE_TIMINGS ] & 3 ) * 3;
+				config[ CFG_CUSTOM_USE_TIMINGS ]    = nextTimingConfiguration[ o + 0 ];
+				config[ CFG_CUSTOM_TIMING_READBUS ] = nextTimingConfiguration[ o + 1 ];
+				config[ CFG_CUSTOM_TIMING_PHI2 ]    = nextTimingConfiguration[ o + 2 ];
+				pio_sm_put( pio0, 1, 32 << (8 * config[ CFG_CUSTOM_USE_TIMINGS ]) );
+				
+				DELAY_Nx3p2_CYCLES( 500000 );
+				writeConfiguration();
+				watchdog_reboot( 0, 0, 0 );
+			}
+
 			watchdog_reboot( 0, 0, 0 );
+			doReset = 0;
 		}
+	#endif
 
 		uint64_t targetEmulationCycle = c64CycleCounter;
 		while ( ringRead != ringWrite )
@@ -607,6 +661,17 @@ void runEmulation()
 			} else
 			{
 				uint8_t reg = cmd >> 8;
+
+				// this is a work-around if very early writes to SID-registers are missed due to boot-up time (and d418 is only set once)
+			#ifndef RESET_ON_GPIO
+				static uint8_t d418_volume_set = 0;
+				if ( !d418_volume_set )
+				{
+					if ( reg == 0x18 ) d418_volume_set = 1;
+					if ( ringRead == 33 )
+						writeReSID( 0x18, 15 );
+				}
+			#endif
 
 				#ifdef USE_RGB_LED
 				if ( reg == 0x18 )
@@ -798,6 +863,23 @@ void runEmulation()
 			} else
 				outputReSID( &L, &R );
 
+			// PWM output via C64/C128 mainboard
+			int32_t s_ = L + R;
+
+			int32_t s = s_ + 65536;
+			s = ( s * AUDIO_VALS ) >> 17;
+
+			if ( lerp )
+			{
+				int32_t t = ( s * ( RAMP_LENGTH - lerp ) + lerp * lerpTarget ) >> RAMP_BITS;
+				lerp += lerpDelta;
+				if ( lerp < 0 ) lerp = 0;
+				if ( lerp >= RAMP_LENGTH ) { lerp = 0; lerpDelta = 0; }
+				s = t;
+			}
+
+			newSample = s;
+
 			#if defined( USE_DAC ) 
 
 			// fill buffer, skip/stretch as needed
@@ -832,34 +914,13 @@ void runEmulation()
 
 			#endif
 			
-			// PWM output via C64/C128 mainboard
-			int32_t s_ = L + R;
+			#if defined( USE_SPDIF )
+			#endif
 
-			int32_t s = s_ + 65536;
-			s = ( s * AUDIO_VALS ) >> 17;
 
-			if ( abs( s - lastS ) == 0 ) {
-				if ( silence < 65530 ) silence ++;
-			} else
-				silence = 0;
-			
-			lastS = s;
-			
-			#define RAMP_BITS 9
-			#define RAMP_LENGTH ( 1 << RAMP_BITS )
-
-			if ( silence > 16384 ) {
-				if ( ramp ) ramp --;
-			} else {
-				if ( ramp < ( RAMP_LENGTH - 1 ) ) ramp ++;
-			}
-			
-			if ( ramp < ( RAMP_LENGTH - 1 ) ) s = ( s * ramp ) >> RAMP_BITS;
-
-			newSample = s;
-
+			//s -= AUDIO_BIAS;
 			s = ( s_ >> ( 1 + 16 - AUDIO_BITS ) );
-			if ( ramp < ( RAMP_LENGTH - 1 ) ) s = ( s * ramp ) >> RAMP_BITS;
+			//if ( ramp < ( RAMP_LENGTH - 1 ) ) s = ( s * ramp ) >> RAMP_BITS;
 			newLEDValue = abs( s ) << 2;
 			s *= s;
 			s >>= ( AUDIO_BITS - 5 );
@@ -898,7 +959,6 @@ void runEmulation()
 				b_ += t;
 			}
 
-			static uint16_t smpCnt = 0;
 			if ( ++ smpCnt >= 1024 )
 			{
 				r_ >>= 24;
@@ -913,8 +973,6 @@ void runEmulation()
 	}
 }
 
-void readConfiguration();
-void writeConfiguration();
 
 #define CONFIG_MODE_CYCLES		25000
 #define TRANSFER_MODE_CYCLES	30000
@@ -930,6 +988,9 @@ uint8_t  transferReg[ 32 ] = {
 	launchCode[ 0 ], launchCode[ 1 ], 0x48, 0x68, 0x4C, 0x01, 0xD4 };
 
 const uint8_t __not_in_flash( "mydata" ) jmpCode[ 3 ] = { 0x4c, 0x00, 0xd4 }; // jmp $d400
+static uint32_t resetCnt32 = 0;
+static volatile uint32_t noSIDAccessCounter = 0;
+static volatile uint32_t launchConfigEnabled = 2;
 
 void handleBus()
 {
@@ -963,8 +1024,8 @@ void handleBus()
 	uint8_t potCycleCounter = 0;
 	uint8_t skipMeasurements = 0;
 
-	potXExtrema[ 0 ] = potYExtrema[ 0 ] = 128 - 30;
-	potXExtrema[ 1 ] = potYExtrema[ 1 ] = 128 + 30;
+	potXExtrema[ 0 ] = potYExtrema[ 0 ] = 128 - 58;
+	potXExtrema[ 1 ] = potYExtrema[ 1 ] = 128 + 58;
 
 	uint16_t prgLength;
 	uint8_t  *transferPayload;
@@ -989,9 +1050,13 @@ void handleBus()
 		/__` | |  \    |__) |  | /__` __ |__|  /\  |\ | |  \ |    | |\ | / _`
 		.__/ | |__/    |__) \__/ .__/    |  | /~~\ | \| |__/ |___ | | \| \__>
 	*/
+	launchConfigEnabled = 2;
+
 handleSIDCommunication:
 
-	
+	resetCnt32 = 0;
+	noSIDAccessCounter = 0;	
+
 	if ( !prgLaunch && currentPRG != 255 )
 	{
 		decompressConfig = 1;
@@ -1032,6 +1097,7 @@ handleSIDCommunication:
 			if ( stateGoingTowardsTransferMode == 3 )
 			{
 				stateInConfigMode = TRANSFER_MODE_CYCLES;
+				if ( launchConfigEnabled ) launchConfigEnabled --;
 				goto transferWaitForCPU_Halfcycle;
 			}
 		}
@@ -1044,18 +1110,34 @@ handleSIDCommunication:
 			{
 				if ( gpioDir & bPOTY )
 				{
+					#if defined( SKPICO_2350CR ) || defined( SKPICO_2350 )
+					io_bank0_hw->io[ POTY ].ctrl = GPIO_FUNC_SIO << IO_BANK0_GPIO0_CTRL_FUNCSEL_LSB;
+					#else
 					iobank0_hw->io[ POTY ].ctrl = GPIO_FUNC_SIO << IO_BANK0_GPIO0_CTRL_FUNCSEL_LSB;
+					#endif
 					gpio_set_dir_masked( bPOTY, 0xffffffff );
 				} else
 				{
+					#if defined( SKPICO_2350CR ) || defined( SKPICO_2350 )
+					io_bank0_hw->io[ POTY ].ctrl = GPIO_FUNC_NULL << IO_BANK0_GPIO0_CTRL_FUNCSEL_LSB;
+					#else
 					iobank0_hw->io[ POTY ].ctrl = GPIO_FUNC_NULL << IO_BANK0_GPIO0_CTRL_FUNCSEL_LSB;
-					hw_clear_bits( &padsbank0_hw->io[ POTY ], PADS_BANK0_GPIO0_IE_BITS );
+					//hw_clear_bits( &padsbank0_hw->io[ POTY ], PADS_BANK0_GPIO0_IE_BITS );
+					#endif
 				}
 
+				#if defined( SKPICO_2350CR ) || defined( SKPICO_2350 )
+				gpio_set_dir_masked64( bPOTX, gpioDir );
+				#else
 				gpio_set_dir_masked( bPOTX, gpioDir );
+				#endif
 			} else
 			{
+				#if defined( SKPICO_2350CR ) || defined( SKPICO_2350 )
+				gpio_set_dir_masked64( bPOTX | bPOTY, gpioDir );
+				#else
 				gpio_set_dir_masked( bPOTX | bPOTY, gpioDir );
+				#endif
 			}
 		}
 
@@ -1087,15 +1169,72 @@ handleSIDCommunication:
 		} else
 			busValueTTL --;
 
+	#ifdef RESET_ON_GPIO
+		#define MILLISECONDS_TO_TIMING_CHANGE	( 4*1000000)
+		#define MILLISECONDS_TO_FACTORY_RESET	( 8*1000000)
+
 		static uint16_t resetCnt = 0;
 		if ( SID_RESET( g ) )
-			resetCnt ++; else
-			resetCnt = 0;
-
-		if ( resetCnt > 100 && doReset == 0 )
 		{
-			doReset = 1;
+			launchConfigEnabled = 2;
+
+			resetCnt32 ++;
+			if ( resetCnt < 30000 ) 
+				resetCnt ++; 
+			if ( resetCnt > 4 ) 
+			{ 
+				lerp = 4;
+				lerpDelta = 4;
+				lerpTarget = AUDIO_VALS / 2;
+			}
+			#ifdef USE_RGB_LED
+			if ( resetCnt32 == MILLISECONDS_TO_FACTORY_RESET )
+				pio_sm_put( pio0, 1, RGB24( 32, 32, 32 ) << 8 ); else
+			if ( resetCnt32 == MILLISECONDS_TO_TIMING_CHANGE )
+				pio_sm_put( pio0, 1, RGB24( 0, 16, 16 ) << 8 );
+			smpCnt = 0;
+			#else
+			static int lastLEDValue = 0, newLEDValue;
+			if ( resetCnt32 >= MILLISECONDS_TO_FACTORY_RESET )
+			{
+				newLEDValue = (resetCnt32 >> 7) % 2800;
+			} else
+			if ( resetCnt32 >= MILLISECONDS_TO_TIMING_CHANGE )
+			{
+				newLEDValue = (resetCnt32 >> 6) % 2800;
+			}
+			if ( newLEDValue != lastLEDValue )
+			{
+				lastLEDValue = newLEDValue;
+				pwm_set_gpio_level( LED_BUILTIN, newLEDValue );
+			}
+			newSample = 0xfffe;
+			#endif
+		} else
+		{
+			if ( resetCnt32 >= MILLISECONDS_TO_FACTORY_RESET )
+			{
+				doReset = 2;
+			} else
+			if ( resetCnt32 >= MILLISECONDS_TO_TIMING_CHANGE )
+			{
+				doReset = 3;
+			} else 
+			if ( resetCnt >= 2500 )
+			{
+				doReset = 1;
+			#ifdef MEANINGFUL_RESET
+				ringWrite = 0;
+				c64CycleCounter = 0;
+				busValue = 0;
+			#endif
+			}
+			resetCnt = resetCnt32 = 0;
+
+			resetCnt = 0;
 		}
+
+	#endif
 
 		register uint8_t CPUWritesDelay = DELAY_READ_BUS_local;
 
@@ -1148,7 +1287,8 @@ handleSIDCommunication:
 				if ( !( g & SID2_FLAG ) || config[ 8/*CFG_SID2_TYPE*/ ] < 3 )
 				{
 					gpio_set_dir_masked( 0xff, 0xff );
-					if ( A >= 0x1d )
+					//if ( A >= 0x1d )
+					if ( ( A == 0x1d && launchConfigEnabled /*&& noSIDAccessCounter > 8*/ ) || A >= 0x1e )
 					{
 						D = jmpCode[ A - 0x1d ];
 						stateGoingTowardsTransferMode ++;
@@ -1183,6 +1323,7 @@ handleSIDCommunication:
 					if ( D == 0xff )
 					{
 						stateInConfigMode = CONFIG_MODE_CYCLES; // SID remains in config mode for 1/40sec
+						launchConfigEnabled = 2;
 						goto configWaitForVIC_Halfcycle;
 					}
 					#ifdef SID_DAC_MODE_SUPPORT
@@ -1193,6 +1334,19 @@ handleSIDCommunication:
 					if ( D == 0xfb )
 					{
 						sidDACMode = SID_DAC_STEREO8;
+					} else
+					if ( D == 0xfa )
+					{
+						sidDACMode = SID_DAC_OFF;
+					} else
+					if ( D == 0xf9 && sidDACMode == SID_DAC_MONO8 )
+					{
+						doReset = 1;
+					#ifdef MEANINGFUL_RESET
+						ringWrite = 0;
+						c64CycleCounter = 0;
+						busValue = 0;
+					#endif
 					}
 					#endif
 				} else
@@ -1256,6 +1410,7 @@ handleSIDCommunication:
 							 A == 0x12 && D == 0x20 )
 						{
 							reg[ REG_AUTO_DETECT_STEP ] = 1;
+							volatile uint8_t x = reg[ REG_MODEL_DETECT_VALUE ];
 						}
 						reg[ A ] = D;
 					}
@@ -1269,7 +1424,11 @@ handleSIDCommunication:
 				// fixed large value avoids artifacts in some old tunes
 				busValueTTL = 0x100000;
 			}
-		}
+
+			noSIDAccessCounter = 0;
+
+		} else
+			noSIDAccessCounter++;
 
 		/*   __   __  ___  ___      ___    __         ___ ___  ___  __
 			|__) /  \  |  |__  |\ |  |  | /  \  |\/| |__   |  |__  |__)
@@ -1300,7 +1459,7 @@ handleSIDCommunication:
 
 					#define max( a, b ) ( (a)>(b)?(a):(b) )
 					#define min( a, b ) ( (a)<(b)?(a):(b) )
-					#ifdef DIAGROM_HACK
+					#ifdef DIAGROM_HACKx
 						if ( DIAGROM_THRESHOLD >= 80 )
 						{
 							if ( abs( newPotXCandidate - newPotYCandidate ) < 10 && newPotXCandidate >= 50 && newPotXCandidate < DIAGROM_THRESHOLD )
@@ -1325,10 +1484,17 @@ handleSIDCommunication:
 						}
 					#endif
 
+
 					if ( !paddleFilterMode )
 					{
+					#ifdef DIAG_TIMINGS
+						outRegisters[ 25 ] = 170 + ( newPotXCandidate >> 7 );
+						outRegisters[ 26 ] = 170 + ( newPotYCandidate >> 7 );
+					#else
+						// todo
 						outRegisters[ 25 ] = newPotXCandidate;
 						outRegisters[ 26 ] = newPotYCandidate;
+					#endif
 					} else
 					if ( !smoothPotValues )
 					{
@@ -1376,7 +1542,8 @@ handleSIDCommunication:
 					 ( potYState && potCycleCounter == ( ( newPotYCandidate + 255 ) >> 1 ) ) )
 					skipMeasurements = 2;
 			}
-		}
+		} 
+
 
 
 		potCycleCounter ++;
@@ -1398,12 +1565,14 @@ handleSIDCommunication:
 
 		if ( disableDataLines )
 		{
-			DELAY_Nx3p2_CYCLES( 3 )
 			disableDataLines = 0;
 			gpio_set_dir_masked( 0xff, 0 );
 		}
 
+		++ c64CycleCounter;
+
 	transferWaitForCPU_Halfcycle:
+
 
 		//
 		// wait for CPU-halfcycle
@@ -1427,22 +1596,38 @@ handleSIDCommunication:
 
 			switch ( A )
 			{
-			case 2:
+			case 1:
 				if ( transferData >= transferDataEnd )
 				{
-					if ( transferStage == 0 )
-					{
-						transferStage = 1;
-						( *(uint16_t *)&transferReg[ 8 ] ) = ( *(uint16_t *)&prgCode[ 0 ] );  // transfer address
-						transferData = (uint8_t *)&prgCode[ 2 ];
-						transferReg[ 4 ] = *transferData;
-						transferDataEnd = (uint8_t *)&( _prgCode_size[ prgCode ] );
-					} else
+					if ( transferStage == 1 )
 					{
 						( *(uint16_t *)&transferReg[ 13 ] ) = jumpAddress = launcherAddress;
+					} else
+					{
+						transferStage = 2;
 					}
 				}
 				break;
+			case 2:
+				{
+					if ( transferStage == 2 )
+					{
+						( *(uint16_t *)&transferReg[ 8 ] ) = ( *(uint16_t *)&prgCode[ 0 ] );  // transfer address
+						transferData = (uint8_t *)&prgCode[ 2 ];
+					}
+				}
+				break;
+			case 3:
+				{
+					if ( transferStage == 2 )
+					{
+						transferReg[ 4 ] = *transferData;
+						transferDataEnd = (uint8_t *)&( _prgCode_size[ prgCode ] );
+						transferStage = 1;
+					}
+				}
+				break;
+
 
 			case 4:
 				transferReg[ 4 ] = *( ++transferData );   // next byte to be transferred
@@ -1456,6 +1641,7 @@ handleSIDCommunication:
 				if ( jumpAddress == launcherAddress )
 				{
 					stateGoingTowardsTransferMode = 0;
+					rampDelta = 1;
 					goto handleSIDCommunication;
 				}
 				break;
@@ -1463,11 +1649,14 @@ handleSIDCommunication:
 		}
 
 		if ( SID_ACCESS( g ) )
+		{
 			stateInConfigMode = TRANSFER_MODE_CYCLES;
+		}
 
-		if ( --stateInConfigMode <= 0 || ( SID_ACCESS( g ) && !READ_ACCESS( g ) ) )
+		if ( --stateInConfigMode <= 0 || ( SID_ACCESS( g ) && WRITE_ACCESS( g ) ) )
 		{
 			stateGoingTowardsTransferMode = 0;
+			rampDelta = 1;
 			goto handleSIDCommunication;
 		}
 
@@ -1489,9 +1678,30 @@ handleSIDCommunication:
 
 		if ( disableDataLines )
 		{
-			DELAY_Nx3p2_CYCLES( 3 )
+			//DELAY_Nx3p2_CYCLES( 3 )
 			disableDataLines = 0;
 			gpio_set_dir_masked( 0xff, 0 );
+		}
+
+		if ( newSample < 0xfffe )
+		{
+			#ifdef OUTPUT_VIA_PWM
+			pwm_set_gpio_level( AUDIO_PIN, newSample );
+			#endif
+			#ifdef FLASH_LED
+			pwm_set_gpio_level( LED_BUILTIN, newLEDValue );
+			#endif
+
+			newSample = 0xffff;
+		}
+
+		// we have to generate a new sample after C64_CLOCK / AUDIO_RATE cycles
+		++ c64CycleCounter;
+		curSample += AUDIO_RATE;
+		if ( curSample > C64_CLOCK )
+		{
+			curSample -= C64_CLOCK;
+			newSample = 0xfffe;
 		}
 
 	configWaitForCPU_Halfcycle:
@@ -1510,11 +1720,19 @@ handleSIDCommunication:
 		{
 			if ( READ_ACCESS( g ) )
 			{
+				#ifdef DIAG_TIMINGS
+				if ( A == 0x1f )
+				{
+					D = busTimingTestValue;
+					busTimingTestValue ++;
+					stateInConfigMode = CONFIG_MODE_CYCLES;
+				} else
+				#endif
 				if ( A == 0x1d )
 				{
 					if ( stateConfigRegisterAccess < 65536 )
 						D = config[ ( stateConfigRegisterAccess ++ ) & 63 ]; else
-						if ( stateConfigRegisterAccess < 65536 + VERSION_STR_SIZE )
+						//if ( stateConfigRegisterAccess < 65536 + VERSION_STR_SIZE )
 							D = VERSION_STR[ stateConfigRegisterAccess - 65536 ];
 					stateInConfigMode = CONFIG_MODE_CYCLES;
 				} else
@@ -1574,6 +1792,7 @@ handleSIDCommunication:
 					if ( D >= 0xfe )
 					{
 						// update settings and write / do not write to flash
+						// TODO
 						updateConfiguration();
 						initPotGPIOs();
 						updateEmulationParameters();
@@ -1582,6 +1801,7 @@ handleSIDCommunication:
 						WAIT_FOR_VIC_HALF_CYCLE
 						WAIT_FOR_CPU_HALF_CYCLE
 						stateInConfigMode = 0;
+						launchConfigEnabled = 2;
 					} else if ( D == 0xfa )
 					{
 						addrLines = 0b11000000;
@@ -1589,8 +1809,9 @@ handleSIDCommunication:
 					} else
 					if ( D == 0xfb )
 					{
-						doReset = 0;
+						doReset = 1;
 						stateInConfigMode = 0;
+						launchConfigEnabled = 2;
 					} else
 					{
 						config[ ( stateConfigRegisterAccess ++ ) & 63 ] = D;
@@ -1609,6 +1830,8 @@ handleSIDCommunication:
 				} else
 				if ( A == 0x14 || A == 0x15 ) // start bus timing banging: value #1 and #2
 				{
+					//if ( A == 0x15 )
+					//pio_sm_put_blocking( pio0, 1, 0xffffff ); 
 					transferPRGSlot = 254 - 0x14 + A;
 					transferPayload = prgCode;
 					stateInConfigMode = CONFIG_MODE_CYCLES;
@@ -1649,6 +1872,8 @@ handleSIDCommunication:
 								maxV = histo[ i ];
 								maxIdx = i;
 							}
+
+
 
 						if ( transferPRGSlot == 254 )
 						{
@@ -1710,6 +1935,7 @@ handleSIDCommunication:
 					prgLaunch = 1;
 					currentPRG = 0;
 					stateInConfigMode = 0;
+					launchConfigEnabled = 2;
 				}
 			}
 		} else
@@ -1720,8 +1946,6 @@ handleSIDCommunication:
 				addrLines |= 4;
 		}
 
-		// for checking if signal levels at A5, A6 and/or A8/IO have changed
-		// trying to avoid problems due to unconnected/swapped wires
 		gA5A6A8 = gpioDir;
 		addrLines &= 0b00111111 | ( ( ( g >> A5 ) & 3 ) << 6 );
 		addrLines |= ( ( g >> A5 ) & 3 ) << 4;
@@ -1732,7 +1956,8 @@ handleSIDCommunication:
 	} // while ( true )
 }
 
-const uint8_t __in_flash( "section_config" ) __attribute__( ( aligned( FLASH_SECTOR_SIZE ) ) ) flashCFG[ 4096 ];
+
+const uint8_t __in_flash( "section_config" ) __attribute__( ( aligned( FLASH_SECTOR_SIZE ) ) ) flashCFG[ 4096 ] = { 255 };
 
 #define FLASH_CONFIG_OFFSET ((uint32_t)flashCFG - XIP_BASE)
 const uint8_t *pConfigXIP = (const uint8_t *)flashCFG;
@@ -1746,28 +1971,26 @@ void readConfiguration()
 	DELAY_READ_BUS = busTimings[ 0 ];
 	DELAY_PHI2     = busTimings[ 1 ];
 
-	SET_CLOCK_FAST
-
-	uint16_t c = crc16( config, 62 );
-
-	if ( ( c & 255 ) != config[ 62 ] || ( c >> 8 ) != config[ 63 ] )
+	if ( config[ 0 ] == 255 )
 	{
 		// load default values
 		extern void setDefaultConfiguration();
 		setDefaultConfiguration();
+	} else
+	{
+        if ( config[ CFG_CUSTOM_USE_TIMINGS ] )
+		{
+        	DELAY_READ_BUS = config[ CFG_CUSTOM_TIMING_READBUS ];
+        	DELAY_PHI2	   = config[ CFG_CUSTOM_TIMING_PHI2 ];
+		}
 	}
 }
 
 void writeConfiguration()
 {
 	SET_CLOCK_125MHZ
-	//sleep_ms( 2 );
 	DELAY_Nx3p2_CYCLES( 85000 );
 	flash_range_erase( FLASH_CONFIG_OFFSET, FLASH_SECTOR_SIZE );
-
-	uint16_t c = crc16( config, 62 );
-	config[ 62 ] = c & 255;
-	config[ 63 ] = c >> 8;
 
 	flash_range_program( FLASH_CONFIG_OFFSET, config, FLASH_PAGE_SIZE );
 
@@ -1785,10 +2008,18 @@ int main()
 	initGPIOs();
 	initPotGPIOs();
 
+	SET_CLOCK_FAST
+
+#if defined( SKPICO_2350CR ) || defined( SKPICO_2350 )
+	// start bus handling and emulation
+	multicore_launch_core1( runEmulation );
+	bus_ctrl_hw->priority = BUSCTRL_BUS_PRIORITY_PROC0_BITS;
+	handleBus();
+#else
 	// start bus handling and emulation
 	multicore_launch_core1( handleBus );
 	bus_ctrl_hw->priority = BUSCTRL_BUS_PRIORITY_PROC1_BITS;
-
 	runEmulation();
+#endif
 	return 0;
 }

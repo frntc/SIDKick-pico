@@ -11,15 +11,27 @@ short_pulse:
 .wrap
 
 % c-sdk {
+
+// 23 normal SKpico, 25 SKpico2040DAC
+#ifdef SKPICO_2350CR
+#define RGBLED_PIN 26
+#else
+#ifdef SKPICO_2040DAC
+#define RGBLED_PIN 25
+#else
+#define RGBLED_PIN 23
+#endif
+#endif
+
 static inline void initProgramWS2812()
 {
 	uint32_t ofs = pio_add_program( pio0, &rgb_program );
 
-	pio_gpio_init( pio0, 23 );
-	pio_sm_set_consecutive_pindirs( pio0, 1, 23, 1, true );
+	pio_gpio_init( pio0, RGBLED_PIN );
+	pio_sm_set_consecutive_pindirs( pio0, 1, RGBLED_PIN, 1, true );
 
 	pio_sm_config c = rgb_program_get_default_config( ofs );
-	sm_config_set_sideset_pins( &c, 23 );
+	sm_config_set_sideset_pins( &c, RGBLED_PIN );
 	sm_config_set_out_shift( &c, false, true, 24 );
 	sm_config_set_fifo_join( &c, PIO_FIFO_JOIN_TX );
 
