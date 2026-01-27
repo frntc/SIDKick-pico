@@ -55,8 +55,8 @@ This section summarizes building and setting up the hardware. The [tables below]
 ### PCB ordering
 
 You can order the PCBs from PCBWay without or with SMD-parts preassembled: 
-- *coming soon* SKpico2350DAC (tiny, RP2354, with DAC),
-- *coming soon* SKpico2350PWM (tiny, RP2354, PWM-only, no external DAC possible),
+- [SKpico2350DAC (tiny, RP2354, with DAC)](https://www.pcbway.com/project/shareproject/SIDKick_pico_2350DAC_SID_6581_8580_replacement_eb753787.html),
+- [SKpico2350PWM (tiny, RP2354, PWM-only, no external DAC possible)](https://www.pcbway.com/project/shareproject/SIDKick_pico_2350PWM_SID_6581_8580_replacement_25bb3050.html),
 - [SKpico2040DAC](https://www.pcbway.com/project/shareproject/SIDKick_pico_2040DAC_SID_6581_8580_replacement_for_C64_C128_a31d896d.html) (tiny, with DAC),
 - [SKpico-interface board with PWM](https://www.pcbway.com/project/shareproject/W160781ASB18_Gerber_1790f9c8.html) (external DAC possible), 
 - [SKpico-interface board with DAC onboard](https://www.pcbway.com/project/shareproject/SIDKick_pico_0_2_DAC_SID_6581_8580_replacement_for_C64_C128_01088623.html).
@@ -144,7 +144,7 @@ The built-in configuration tool autodetects and displays which cables have been 
 
 #### SKpico2350*
 
-Nothing to do :-) For the SKpico2350DAC you can tap the line-out signal at the 3 pins at the top-left corner.
+Nothing to do :-) For the SKpico2350DAC you can tap the line-out signal at the 3 pins at the top-left corner (from top to bottom: right-ground-left).
 
 #### Interface board without DAC
 
@@ -201,7 +201,7 @@ The SKpico is powered from the C64/C128-mainboard, DO NOT power from USB at the 
 
 ### Interface Board
 
-The SKpico-PCBs do not need to be programmed in any way. Only the RPi Pico needs to be flashed with the pre-built binaries (available in the release package). 
+The SKpico-interface PCBs do not need to be programmed in any way. Only the RPi Pico needs to be flashed with the pre-built binaries (available in the release package). 
 
 The procedure is simple: press and hold the 'Boot'-button on the RPi pico, then connect to your PC. When it shows up as USB-drive you can simply copy the firmware (.uf2) to this drive (no need to keep pressing the boot button).
 
@@ -211,7 +211,9 @@ The procedure is simple: press and hold the 'Boot'-button on the RPi pico, then 
 
 ### SKpico2350*
 
-Flashing the firmware still works via USB. You can either use a cheap USB-breakout board or solder a (magnetic) USB-connector to the SKpico. The boot button can either be bridged (before and while connecting to USB) using a wire, or you can solder a SMD-tactile button or pinheader.  
+<img align="right" height="120" src="Images/skpico2350cr_usb.jpg">
+
+Flashing the firmware still works via USB. You can either use a cheap USB-breakout board (see image) or solder a (magnetic) USB-connector to the SKpico. The boot button can either be bridged (before and while connecting to USB) using a wire, or you can solder a SMD-tactile button or pinheader.  
 
 <br> 
 
@@ -343,7 +345,7 @@ The firmware has been built using the Raspberry Pi Pico SDK.
  
 ## Disclaimer
 
-I'm a hobbyist, no electronics engineer. I'm doing my best to ensure that my projects are working at intended, but I cannot give any guarantee for anything. Be careful not to damage your RPi Pico, PC, or Commodore, or anything attached to it. I am not responsible if you or your hardware gets damaged. Note that the RPi Pico/Pico2/RP2040/RP2350 get overclocked. The SKpico2350* does not use level shifters. If you don't know what you're doing, better don't... use everything at your own risk.
+I'm a hobbyist, no electronics engineer. I'm doing my best to ensure that my projects are working at intended, but I cannot give any guarantee for anything. Be careful not to damage your RPi Pico, PC, or Commodore, or anything attached to it. I am not responsible if you or your hardware gets damaged, or any other effects of using the SKpicos. Note that the RPi Pico/Pico2/RP2040/RP2350 get overclocked. The SKpico2350* does not use level shifters. If you don't know what you're doing, better don't... use everything at your own risk.
 
 <br />
   
