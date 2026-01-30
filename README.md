@@ -345,7 +345,7 @@ The firmware has been built using the Raspberry Pi Pico SDK.
  
 ## Disclaimer
 
-I'm a hobbyist, no electronics engineer. I'm doing my best to ensure that my projects are working at intended, but I cannot give any guarantee for anything. Be careful not to damage your RPi Pico, PC, or Commodore, or anything attached to it. I am not responsible if you or your hardware gets damaged, or any other effects of using the SKpicos. Note that the RPi Pico/Pico2/RP2040/RP2350 get overclocked. The SKpico2350* does not use level shifters. If you don't know what you're doing, better don't... use everything at your own risk.
+I'm a hobbyist, no electronics engineer. I'm doing my best to ensure that my projects are working at intended, but I cannot give any guarantee for anything. I am not a manufacturer or distributor, so you must ensure yourself that operation is permitted in your place of residence. Be careful not to damage your RPi Pico, PC, or Commodore, or anything attached to it. I am not responsible if you or your hardware gets damaged, or any other effects of using the SKpicos. Note that the RPi Pico/Pico2/RP2040/RP2350 get overclocked. The SKpico2350* does not use level shifters. If you don't know what you're doing, better don't... use everything at your own risk.
 
 <br />
   
