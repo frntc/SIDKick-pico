@@ -52,6 +52,11 @@ static int32_t cfgVolSID2_Left, cfgVolSID2_Right;
 static int32_t actVolSID1_Left, actVolSID1_Right;
 static int32_t actVolSID2_Left, actVolSID2_Right;
 
+#ifdef U64BOARD
+static int32_t cfgVolFM_Left, cfgVolFM_Right;
+static int32_t actVolFM_Left, actVolFM_Right;
+#endif
+
 uint32_t C64_CLOCK = 985248;
 uint8_t  SID_DIGI_DETECT = 0;
 uint32_t SID2_FLAG = 0; 
@@ -93,7 +98,9 @@ extern "C"
         config[ CFG_SID1_TYPE ] = 1;
         config[ CFG_SID2_TYPE ] = 1*0+3;
         config[ CFG_REGISTER_READ ] = 1;
+        #ifndef U64BOARD
         config[ CFG_SID2_ADDRESS ] = 0 + 4*0;
+        #endif
         config[ CFG_SID1_DIGIBOOST ] = 12;
         config[ CFG_SID2_DIGIBOOST ] = 12;
         config[ CFG_SID1_VOLUME ] = 14;
@@ -121,7 +128,9 @@ extern "C"
         config[ CFG_CUSTOM_TIMING_READBUS ] = 0;
         config[ CFG_CUSTOM_TIMING_PHI2 ] = 0;
 
-        return;
+        #ifdef U64BOARD
+        config[ CFG_SID2_VOLUME_U64 ] = 14;
+        #endif
     }
 
     void updateConfiguration()
@@ -165,13 +174,21 @@ extern "C"
             SID2_IOx_global = 0;
         }
 
+        #ifndef U64BOARD
         if ( config[ CFG_SID2_TYPE ] >= 4 ) // FM
             FM_ENABLE = 6 - config[ CFG_SID2_TYPE ]; else
+        #endif
             FM_ENABLE = 0;
 
+        #ifndef U64BOARD
         if ( config[ CFG_SID2_ADDRESS ] != SID2_ADDR_PREV )
             sid16b->reset();
 
+        SID2_ADDR_PREV = config[ CFG_SID2_ADDRESS ];
+        #else 
+        sid16b->reset();
+        #endif
+		
         SID2_ADDR_PREV = config[ CFG_SID2_ADDRESS ];
 
         POT_FILTER_global = config[ CFG_POT_FILTER ];
@@ -200,14 +217,26 @@ extern "C"
             SID2_FLAG = ( 1 << 30 );    // dummy register writes to disables sid #2
         } else
         {
+            #ifdef U64BOARD
+            cfgVolSID2_Left = (int)( config[ CFG_SID2_VOLUME_U64 ] ) * (int)( panning );
+            cfgVolSID2_Right = (int)( config[ CFG_SID2_VOLUME_U64 ] ) * (int)( 14 - panning );
+            // TODO keep panning?
+            cfgVolFM_Left = (int)( config[ CFG_FM_VOLUME_U64 ] ) * (int)( panning );
+            cfgVolFM_Right = (int)( config[ CFG_FM_VOLUME_U64 ] ) * (int)( 14 - panning );
+            #else
             cfgVolSID2_Left = (int)( config[ CFG_SID2_VOLUME ] ) * (int)( panning );
             cfgVolSID2_Right = (int)( config[ CFG_SID2_VOLUME ] ) * (int)( 14 - panning );
+            #endif
         }
 
         actVolSID1_Left = cfgVolSID1_Left;
         actVolSID1_Right = cfgVolSID1_Right;
         actVolSID2_Left = cfgVolSID2_Left;
         actVolSID2_Right = cfgVolSID2_Right;
+        #ifdef U64BOARD
+        actVolFM_Left = cfgVolFM_Left;
+        actVolFM_Right = cfgVolFM_Right;
+        #endif
 
         {
             const int32_t maxVolFactor = 14 * 15;
@@ -223,6 +252,10 @@ extern "C"
             actVolSID1_Right = actVolSID1_Right * balanceRight * globalVolume / maxVolFactor;
             actVolSID2_Left = actVolSID2_Left * balanceLeft * globalVolume / maxVolFactor;
             actVolSID2_Right = actVolSID2_Right * balanceRight * globalVolume / maxVolFactor;
+			#ifdef U64BOARD
+			actVolFM_Left = actVolFM_Left * balanceLeft * globalVolume / maxVolFactor;
+			actVolFM_Right = actVolFM_Right * balanceRight * globalVolume / maxVolFactor;
+			#endif
         }
 
         SID_DIGI_DETECT = config[ CFG_DIGIDETECT ] ? 1 : 0;
@@ -309,6 +342,64 @@ extern "C"
     {
         sid16->forceDigiOutput( voice, value );
     }
+
+
+#ifdef U64BOARD
+    void outputReSIDFMU64( int16_t *left, int16_t *right, int32_t fm, uint8_t fmHackEnable, uint8_t *fmDigis )
+    {
+        int32_t sid1 = sid16->output();
+
+       int32_t L = sid1 * actVolSID1_Left + (fm * actVolFM_Left*2);
+        int32_t R = sid1 * actVolSID1_Right + (fm * actVolFM_Right*2);
+
+        L >>= 16; R >>= 16;
+        if ( L > 32767 ) L = 32767;
+        if ( R > 32767 ) R = 32767;
+        if ( L < -32767 ) L = -32767;
+        if ( R < -32767 ) R = -32767;
+        *left = L;
+        *right = R;
+
+
+    #ifdef USE_RGB_LED
+        // SID #1 voices map to red, green, blue
+        voiceOutAcc[ 0 ] = sid16->voiceOut[ 0 ];
+        voiceOutAcc[ 1 ] = sid16->voiceOut[ 1 ];
+        voiceOutAcc[ 2 ] = sid16->voiceOut[ 2 ];
+
+        // FM voices map to colors as defined in colorMap
+        if ( fmHackEnable )
+        {
+            //voiceOutAcc[ 0 ] = voiceOutAcc[ 1 ] = voiceOutAcc[ 2 ] = (fm-2048) << 6;
+            if ( fmHackEnable & 2 )
+            {
+                voiceOutAcc[ 0 ] >>= 1;
+                voiceOutAcc[ 1 ] >>= 1;
+                voiceOutAcc[ 2 ] >>= 1;
+                voiceOutAcc[ 0 ] += ( colorMap[ 8 ][ 0 ] * ( fmDigis[ 1 ] - 64 ) << 11 ) >> 7;
+                voiceOutAcc[ 1 ] += ( colorMap[ 8 ][ 1 ] * ( fmDigis[ 1 ] - 64 ) << 11 ) >> 7;
+                voiceOutAcc[ 2 ] += ( colorMap[ 8 ][ 2 ] * ( fmDigis[ 1 ] - 64 ) << 11 ) >> 7;
+            }
+            if ( fmHackEnable & 1 )
+            {
+                voiceOutAcc[ 0 ] += ( colorMap[ 1 ][ 0 ] * ( fmDigis[ 0 ] - 64 ) << 11 ) >> 7;
+                voiceOutAcc[ 1 ] += ( colorMap[ 1 ][ 1 ] * ( fmDigis[ 0 ] - 64 ) << 11 ) >> 7;
+                voiceOutAcc[ 2 ] += ( colorMap[ 1 ][ 2 ] * ( fmDigis[ 0 ] - 64 ) << 11 ) >> 7;
+            }
+        } else
+            for ( int i = 0; i < 9; i++ )
+            {
+                extern int32_t outputCh[ 9 ];
+                voiceOutAcc[ 0 ] += ( colorMap[ i ][ 0 ] * outputCh[ i ] ) >> 1;
+                voiceOutAcc[ 1 ] += ( colorMap[ i ][ 1 ] * outputCh[ i ] ) >> 1;
+                voiceOutAcc[ 2 ] += ( colorMap[ i ][ 2 ] * outputCh[ i ] ) >> 1;
+            }
+        nSamplesAcc ++;
+    #endif
+    }    
+#endif
+
+
 
     void outputReSID( int16_t * left, int16_t * right )
     {
@@ -417,5 +508,6 @@ extern "C"
     {
         return sid16b->read( offset );
     }
+
 
 }
