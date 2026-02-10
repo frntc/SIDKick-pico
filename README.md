@@ -121,7 +121,7 @@ You can use one or two SKpicos in the Ultimate 64-board / Commodore 64 Ultimate,
 When using only one SKpico, you can use a firmware which supports a special addressing mode (firmware in the "U64_C64U"-folder) where the addressing is set by the Ultimate-configuration and the SKpico automatically plays dual-SID or SID+FM. For this you need to install the following cables:
 | SKpico pin  | U64/C64U |
 |----------|:-------------|
-| A5/A6 | connect to left pin on the "SID A[5..9]" pin header on the U64/C64U | 
+| A5/A6 | connect to left pin on the "SID A[5..9]" pin header on the U64/C64U <br/> (on old Ultimate64-boards this is the P7-header, connect to the second pin from the right)| 
 | A8/IO | connect to pin 8 of the second SID-socket |
 
 Set up the Ultimate-configuration as follows:
