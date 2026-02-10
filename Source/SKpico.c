@@ -66,6 +66,9 @@ uint16_t prgCode_sizeM;
 #include "fmopl.h"
 extern uint8_t FM_ENABLE;
 
+#ifdef U64BOARD
+static uint8_t FM_DYNAMIC_ENABLE = 0;
+#endif
 
 #ifdef USE_RGB_LED
 #undef FLASH_LED
@@ -93,10 +96,19 @@ static const __not_in_flash( "mydata" ) unsigned char VERSION_STR[ VERSION_STR_S
   0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '2', '2', '/', 0x53, 0x50, 0x44, 0x49, 0x46, 0, 0, 0, 0,   // version string to show
 #endif
 #if defined( USE_DAC ) 
+#ifdef U64BOARD
+  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '2', '2', '/', 0x55, 0x44, 0x41, 0x43, '6', '4', 0, 0, 0,   // version string to show
+#else
   0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '2', '2', '/', 0x44, 0x41, 0x43, '6', '4', 0, 0, 0, 0,   // version string to show
+#endif
 #elif defined( OUTPUT_VIA_PWM )
+#ifdef U64BOARD
+  0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '2', '2', '/', 0x55, 0x50, 0x57, 0x4d, '6', '4', 0, 0, 0,   // version string to show
+#else
   0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, '0', '.', '2', '2', '/', 0x50, 0x57, 0x4d, '6', '4', 0, 0, 0, 0,   // version string to show
 #endif
+#endif
+
   0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f, 0x00, 0x00,   // signature + extension version 0
   0, 22,                                            // firmware version with stepping = 0.12
 #ifdef SID_DAC_MODE_SUPPORT                         // support DAC modes? which?
@@ -206,7 +218,12 @@ void initGPIOs()
 		//gpio_set_drive_strength( i, GPIO_DRIVE_STRENGTH_12MA );
 	}
 	gpio_init( 28 );
+	#ifdef U64BOARD
+	gpio_set_pulls( A5, false, true );
 	gpio_set_pulls( A8, true, false );
+	#else
+	gpio_set_pulls( A8, true, false );
+	#endif
 	gpio_set_pulls( RESET, true, false );
 	gpio_set_dir_all_bits( bOE | bPWN_POT | ( 1 << LED_BUILTIN ) | ( 1 << 23));
 }
@@ -651,7 +668,11 @@ void runEmulation()
 
 			if ( cmd & ( 1 << 15 ) )
 			{
+				#ifdef U64BOARD
+				if ( FM_DYNAMIC_ENABLE )
+				#else
 				if ( FM_ENABLE )
+				#endif
 				{
 					ym3812_write( pOPL, ( ( cmd >> 8 ) >> 4 ) & 1, cmd & 255 );
 				} else
@@ -829,9 +850,15 @@ void runEmulation()
 
 			uint64_t cyclesToEmulate = curCycleCount - lastSIDEmulationCycle;
 			lastSIDEmulationCycle = curCycleCount;
+			#ifdef U64BOARD
+			if ( FM_DYNAMIC_ENABLE )
+				emulateCyclesReSIDSingle( cyclesToEmulate ); else
+				emulateCyclesReSID( cyclesToEmulate );
+			#else
 			if ( FM_ENABLE )
 				emulateCyclesReSIDSingle( cyclesToEmulate ); else
 				emulateCyclesReSID( cyclesToEmulate );
+			#endif
 			readRegs( &outRegisters[ 0x1b ], &outRegisters_2[ 0x1b ] );
 		}
 
@@ -850,7 +877,11 @@ void runEmulation()
 				#endif
 			} else
 			#endif
+			#ifdef U64BOARD
+			if ( FM_DYNAMIC_ENABLE )
+			#else
 			if ( FM_ENABLE )
+			#endif
 			{
 				OPLSAMPLE fm;
 				ym3812_update_one( pOPL, &fm, 1 );
@@ -858,8 +889,13 @@ void runEmulation()
 				if ( hack_OPL_Sample_Enabled )
 					fm = ( (uint16_t)hack_OPL_Sample_Value[ 0 ] << 5 ) + ( (uint16_t)hack_OPL_Sample_Value[ 1 ] << 5 );
 
+				#ifdef U64BOARD
+				extern void outputReSIDFMU64( int16_t * left, int16_t * right, int32_t fm, uint8_t fmHackEnable, uint8_t *fmDigis );
+				outputReSIDFMU64( &L, &R, (int32_t)fm, hack_OPL_Sample_Enabled, hack_OPL_Sample_Value );
+				#else
 				extern void outputReSIDFM( int16_t * left, int16_t * right, int32_t fm, uint8_t fmHackEnable, uint8_t *fmDigis );
 				outputReSIDFM( &L, &R, (int32_t)fm, hack_OPL_Sample_Enabled, hack_OPL_Sample_Value );
+				#endif
 			} else
 				outputReSID( &L, &R );
 
@@ -1250,7 +1286,15 @@ handleSIDCommunication:
 
 		uint8_t *reg;
 
-		
+		#ifdef U64BOARD
+		uint8_t FM_ACCESS = 0;
+		if ( !SID_ACCESS( g ) && !( g & ( 1 << A8 ) ) )
+		{
+			FM_ACCESS = 1;
+			FM_DYNAMIC_ENABLE = 1;
+			goto HANDLE_SID_ACCESS;
+		}
+		#else
 		if ( SID2_IOx )
 		{
 			if ( SID_ACCESS( g ) )
@@ -1265,6 +1309,7 @@ handleSIDCommunication:
 				goto HANDLE_SID_ACCESS;
 			} 
 		}
+		#endif
 
 		if ( SID_ACCESS( g ) )
 		{
@@ -1272,7 +1317,11 @@ handleSIDCommunication:
 			reg = outRegisters + ( ( g & SID2_FLAG ) ? 34 : 0 );
 			if ( READ_ACCESS( g ) )
 			{
+				#ifdef U64BOARD
+				if ( FM_ACCESS ) 
+				#else
 				if ( ( g & SID2_FLAG ) && (FM_ENABLE > 1) ) 
+				#endif
 				{
 					gpio_set_dir_masked( 0xff, 0xff );
 					if ( g & ( 1 << A5 ) && !( ( g >> A0 ) & 15 ) )
@@ -1351,9 +1400,14 @@ handleSIDCommunication:
 					#endif
 				} else
 				{
+					#ifdef U64BOARD
+					if ( FM_ACCESS ) 
+					{
+					#else
 					if ( (g & SID2_FLAG) && FM_ENABLE )
 					{
 						if ( (g & ( 1 << A5 )) && !( ( g >> A0 ) & 15 ) )
+					#endif
 						{
 
 							static uint8_t mOPL_addr = 0;
