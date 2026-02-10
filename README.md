@@ -114,6 +114,24 @@ Pay attention to *correctly orient and insert* the RPi Pico and the SKpico (see 
 
 You can choose to emulate a single SID only. If you want to use a second SID or FM sound you need to connect additional cables to get the signals to the SKpico as they are not available at the SID socket:
 
+### Installing additional cables in an Ultimate 64-board / Commodore 64 Ultimate
+
+You can use one or two SKpicos in the Ultimate 64-board / Commodore 64 Ultimate, however, currently the configuration tool can only  modify the settings of the SKpico at address $d400 (that is, to configure both you need to switch the mapping back and forth). In this case use the standard "C64/C128" firmware.
+
+When using only one SKpico, you can use a firmware which supports a special addressing mode (firmware in the "U64_C64U"-folder) where the addressing is set by the Ultimate-configuration and the SKpico automatically plays dual-SID or SID+FM. For this you need to install the following cables:
+| SKpico pin  | U64/C64U |
+|----------|:-------------|
+| A5/A6 | connect to left pin on the "SID A[5..9]" pin header on the U64/C64U | 
+| A8/IO | connect to pin 8 of the second SID-socket |
+
+Set up the Ultimate-configuration as follows:
+- enable both SID sockets, set up the audio mixer to output the audio from socket #1
+- set "SID Socket 1 Address" to $D400, "SID Socket 2 Address" to $DF40
+- set "Ext DualSID Range Split" to A5 for 2nd SID at $D420, to A8 for $D500 etc.
+
+*Coming soon:* I'm working on a small add-on adapter board to make this set up easier and also output stereo via HDMI. 
+
+
 ### Installing additional cables in C64
 | SKpico pin  | C64 (see images for alternative locations) |
 |----------|:-------------|
