@@ -4,7 +4,7 @@
   <b> .- the inexpensive dual-SID/FM replacement that you can build yourself -. </b><br><br>
 </p>
 
-The SIDKick pico ("SKpico") is a drop-in replacement for the SID 6581/8580 sound chips in the Commodore 64 and 128 computers, and it can also emulate the SFX Sound Expander (FM). 
+The SIDKick pico ("SKpico") is a drop-in replacement for the SID 6581/8580 sound chips in the Commodore 64 and 128 computers (as well as for the Ultimate64 boards and Commodore 64 Ultimate), and it can also emulate the SFX Sound Expander (FM). 
 It has been designed as an inexpensive alternative to other replacements while not making compromises regarding quality. 
 
 There exist two lines of SKpicos: first, a tiny SKpico, only slightly larger than an original SID (all components on board), and second, 
