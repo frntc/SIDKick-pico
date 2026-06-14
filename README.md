@@ -29,7 +29,7 @@ The hardware variants mainly differ in
     - interface boards with PWM can be combined with an external DAC.
 - microcontroller (the SID/FM emulation is identical regardless of which microcontroller is used)
     - interface boards can be used with Raspberry Pi Pico or Pico2, or compatible clones
-    - the tiny SKpicos use the RP235x (new variant, coming soon!) or the RP2040
+    - the tiny SKpicos use the RP235x (new variant) or the RP2040
     
 
 <p align="center" font-size: 30px;>
@@ -100,13 +100,13 @@ The next step is to solder the pin header and sockets  which works best if you f
 <img align="right" height="80" src="Images/SKpico2040DAC_RGBLED.jpg">
 
 These PCB are tough for hand soldering. In case you want to give it a try, here's the interactive BOM for 
-- *coming soon* SKpico2350DAC 
-- *coming soon* SKpico2350PWM 
+- [SKpico2350DAC](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom_SKpico2350DAC.html)
+- [SKpico2350PWM](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom_SKpico2350PWM.html)
 - [SKpico2040DAC](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom_SKpico2040DAC.html) 
 
-The SK2354-variants have some unpopulated components. The flash in the 2040DAC-BOM is a larger one and sometimes hard to source, but a "W25Q16RVXHJQ TR" works (and has enough capacity). For the configuration of the SKpico2040DAC see below, the SKpico2354s do not require further hardware configuration.
+Note: The SK2354-variants have some unpopulated components! The flash in the 2040DAC-BOM is a larger one and sometimes hard to source, but a "W25Q16RVXHJQ TR" works (and has enough capacity). For the configuration of the SKpico2040DAC see below, the SKpico2354s do not require further hardware configuration.
 
-Note that the PCBWay-projects do not include the optional RGB-LED on the top side (two sided SMD-mounting is much more expensive), for which you need a WS2812B LED (SMD-4P, 5x5mm footprint) with the pinout shown on the image, e.g. the World Semi WS2812B-HS01/W. 
+Note that the files on PCBWay-projects do not include the optional RGB-LED on the top side, but PCBWay offers to solder the LED and pinheaders as well (they often add this to the quote themselves). If you do this yourself, you need a WS2812B LED (SMD-4P, 5x5mm footprint) with the pinout shown on the image, e.g. the World Semi WS2812B-HS01/W. 
 
 ## Installing a SIDKick pico
 
@@ -118,18 +118,23 @@ You can choose to emulate a single SID only. If you want to use a second SID or 
 
 You can use one or two SKpicos in the Ultimate 64-board / Commodore 64 Ultimate, however, currently the configuration tool can only  modify the settings of the SKpico at address $d400 (that is, to configure both you need to switch the mapping back and forth). In this case use the standard "C64/C128" firmware.
 
-When using only one SKpico, you can use a firmware which supports a special addressing mode (firmware in the "U64_C64U"-folder) where the addressing is set by the Ultimate-configuration and the SKpico automatically plays dual-SID or SID+FM. For this you need to install the following cables:
+When using only one SKpico, you can use a firmware which supports a special addressing mode (firmware in the "U64_C64U"-folder) where the addressing is set by the Ultimate-configuration and the SKpico automatically plays dual-SID or SID+FM. For this you need to install the following cables for the SKpico to read the signals:
 | SKpico pin  | U64/C64U |
 |----------|:-------------|
 | A5/A6 | connect to left pin on the "SID A[5..9]" pin header on the U64/C64U <br/> (on old Ultimate64-boards this is the P7-header, connect to the second pin from the right)| 
 | A8/IO | connect to pin 8 of the second SID-socket |
 
+<img align="right" height="100" src="Images/SKpico_C64U_wiring.jpg">
+<img align="right" height="100" src="Images/SKpico2350_with_Adapter.jpg">
+
+There is a small adapter board which makes this setup easy and also outputs stereo via HDMI! 
+Here is the [interactive BOM](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom_C64UAdapter.html) for the adapter.
+
+
 Set up the Ultimate-configuration as follows:
 - enable both SID sockets, set up the audio mixer to output the audio from socket #1
 - set "SID Socket 1 Address" to $D400, "SID Socket 2 Address" to $DF40
 - set "Ext DualSID Range Split" to A5 for 2nd SID at $D420, to A8 for $D500 etc.
-
-*Coming soon:* I'm working on a small add-on adapter board to make this set up easier and also output stereo via HDMI. 
 
 
 ### Installing additional cables in C64
