@@ -125,7 +125,7 @@ When using only one SKpico, you can use a firmware which supports a special addr
 | A8/IO | connect to pin 8 of the second SID-socket |
 
 <img align="right" height="100" src="Images/SKpico_C64U_wiring.jpg">
-<img align="right" height="100" src="Images/SKpico2350_with_Adapter.jpg">
+<img align="right" height="100" src="Images/SKpico2350_C64U_with_adapter.jpg">
 
 There is a small adapter board which makes this setup easy and also outputs stereo via HDMI! 
 Here is the [interactive BOM](https://htmlpreview.github.io/?https://github.com/frntc/SIDKick-pico/blob/master/BOM/ibom_C64UAdapter.html) for the adapter.
