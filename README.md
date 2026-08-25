@@ -419,7 +419,7 @@ Please welcome these sellers to the Hall of Shame:
 
 ## Acknowledgements
 
-Last but not least I would like to thank a few people: Dag Lem for reSID, discussions and insights; Dan Tootill (and friends), emulaThor, bigby, TurboMicha, quadflyer8 and others on forum64.de for testing and feedback/bug reports; androSID for discussions and lots of information on electronics; [Retrofan](https://compidiaries.wordpress.com/) for designing the SIDKick-logo and his font which is used in the configuration tool; Flex/Artline Designs for letting me use his music in the config tool. Magnus Lind for releasing the Exo(de-)cruncher which is used in the firmware. Jürgen Wothke for releasing WebSid.
+Last but not least I would like to thank a few people: Dag Lem for reSID, discussions and insights; Swallow / Censor Design for help with 'nasty emulation details'; Dan Tootill (and friends), marty, x1541, felixw, emulaThor, bigby, TurboMicha, quadflyer8 and others on forum64.de for testing and feedback/bug reports; androSID for discussions and lots of information on electronics; [Retrofan](https://compidiaries.wordpress.com/) for designing the SIDKick-logo and his font which is used in the configuration tool; Flex/Artline Designs for letting me use his music in the config tool. Magnus Lind for releasing the Exo(de-)cruncher which is used in the firmware. Jürgen Wothke for releasing WebSid.
 
 Thanks for reading until the very end. I'd be happy to hear from you if you decide to build your own SKpico!
 
